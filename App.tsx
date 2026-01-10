@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
 
+
   const handleParse = async () => {
     if (!apiKey) {
       alert("请先配置 API Key");
@@ -35,10 +36,8 @@ const App: React.FC = () => {
       const results: ParsingResult[] = await parseRecruitmentText(apiKey, inputText, userProfile);
       
       const newJobs: JobApplication[] = results.map(res => {
-        const schoolStr = res.profile_selected === 'NUS_2027' 
-            ? `${userProfile.undergrad}/${userProfile.master}` 
-            : userProfile.undergrad;
-        const subject = `应聘${res.position} - ${userProfile.name} - ${schoolStr} - ${res.company}`;
+        // [修改] 移除旧的 subject 和 schoolStr 拼接逻辑
+        // 直接使用 AI 返回的 email_subject 和 profile_selected
 
         return {
             id: generateId(),
@@ -47,14 +46,15 @@ const App: React.FC = () => {
             position: res.position,
             email: res.email,
             profile_selected: res.profile_selected as ProfileType,
-            email_subject: subject,
-            filename: `${subject}.pdf`,
             
-            // --- 核心映射 ---
+            // [修改] 直接使用 AI 生成的标题
+            email_subject: res.email_subject,
+            filename: `${res.email_subject}.pdf`, // 简历文件名与标题一致
+            
             opening_line: res.opening_line,
             job_source_line: res.job_source_line,
             praise_line: res.praise_line,
-            // ---------------
+	    needs_review: res.needs_review,
 
             raw_requirement: inputText,
             selected: true,
@@ -72,6 +72,7 @@ const App: React.FC = () => {
       setIsParsing(false);
     }
   };
+
 
   const updateJob = (id: string, updates: Partial<JobApplication>) => {
     setJobs(prev => {
@@ -156,7 +157,9 @@ const App: React.FC = () => {
             to_email: job.email,
             subject: job.email_subject,
             from_name: userProfile.name,
-            reply_to: userProfile.senderEmail
+            // [Fix Issue 1] 增加 from_email 透传，并保留 reply_to
+            reply_to: userProfile.senderEmail,
+            from_email: userProfile.senderEmail
         };
 
         const response = await emailjs.send(
@@ -190,7 +193,7 @@ const App: React.FC = () => {
                 <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg">IF</div>
                 <div>
                     <h1 className="text-xl font-bold text-gray-900 tracking-tight">InternFlow AI</h1>
-                    <p className="text-xs text-gray-500 font-medium">智能简历投递系统 V3.0</p>
+                    <p className="text-xs text-gray-500 font-medium">智能简历投递系统 V3.1</p>
                 </div>
             </div>
             <div className="flex items-center gap-4">
@@ -248,6 +251,7 @@ const App: React.FC = () => {
                                 <JobEntryRow 
                                     key={job.id} 
                                     job={job} 
+				    userProfile={userProfile}
                                     onUpdate={updateJob}
                                     onDelete={deleteJob}
                                     onToggleSelect={toggleSelect}

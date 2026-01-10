@@ -1,28 +1,42 @@
 import React, { useState } from 'react';
-import { JobApplication, ProfileType } from '../types';
+import { JobApplication, ProfileType, UserProfile } from '../types';
 
 interface JobEntryRowProps {
   job: JobApplication;
+  // [新增] 引入 userProfile 以实现动态渲染
+  userProfile: UserProfile;
   onUpdate: (id: string, updates: Partial<JobApplication>) => void;
   onDelete: (id: string) => void;
   onToggleSelect: (id: string) => void;
   onPreview: (job: JobApplication) => void;
 }
 
-const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, onUpdate, onDelete, onToggleSelect, onPreview }) => {
+const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, userProfile, onUpdate, onDelete, onToggleSelect, onPreview }) => {
   const [isEditingSubject, setIsEditingSubject] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
 
+  // [重构] 动态替换逻辑，不再硬编码 "厦门大学" 或 "NUS"
   const handleProfileChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     e.stopPropagation();
     const newProfile = e.target.value as ProfileType;
     
-    // Simple heuristic to update subject immediately if user changes profile manually
     let newSubject = job.email_subject;
-    if (newProfile === ProfileType.NUS_2027 && job.profile_selected === ProfileType.XMU_Only) {
-       newSubject = newSubject.replace("厦门大学", "厦门大学&NUS");
-    } else if (newProfile === ProfileType.XMU_Only && job.profile_selected === ProfileType.NUS_2027) {
-       newSubject = newSubject.replace("厦门大学&NUS", "厦门大学");
+    const baseSchool = userProfile.undergrad;
+    const masterSchool = userProfile.master || '';
+    const fullSchool = `${baseSchool}&${masterSchool}`;
+
+    // 如果从 Base 切换到 Master (需要添加硕士信息)
+    if (newProfile === ProfileType.Master && job.profile_selected === ProfileType.Base) {
+       // 尝试将仅含本科的替换为本硕
+       if (newSubject.includes(baseSchool)) {
+           newSubject = newSubject.replace(baseSchool, fullSchool);
+       }
+    } 
+    // 如果从 Master 切换到 Base (需要移除硕士信息)
+    else if (newProfile === ProfileType.Base && job.profile_selected === ProfileType.Master) {
+       if (newSubject.includes(fullSchool)) {
+           newSubject = newSubject.replace(fullSchool, baseSchool);
+       }
     }
 
     onUpdate(job.id, { 
@@ -51,7 +65,6 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, onUpdate, onDelete, onTo
   };
 
   const handleRowClick = (e: React.MouseEvent) => {
-      // Prevent clicking on input/select/button from triggering the preview
       if ((e.target as HTMLElement).tagName.toLowerCase() !== 'input' && 
           (e.target as HTMLElement).tagName.toLowerCase() !== 'select' && 
           (e.target as HTMLElement).tagName.toLowerCase() !== 'button' &&
@@ -60,11 +73,14 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, onUpdate, onDelete, onTo
       }
   };
 
+  const rowStyleClass = job.needs_review 
+    ? 'bg-yellow-50 border-2 border-yellow-400' 
+    : job.selected 
+        ? 'bg-indigo-50/30 border-b border-gray-100' 
+        : 'hover:bg-gray-50 border-b border-gray-100';
+
   return (
-    <tr 
-        onClick={handleRowClick}
-        className={`hover:bg-gray-50 transition-colors cursor-pointer ${job.selected ? 'bg-indigo-50/30' : ''}`}
-    >
+    <tr onClick={handleRowClick} className={`transition-colors cursor-pointer relative ${rowStyleClass}`}>
       <td className="p-4 w-12" onClick={(e) => e.stopPropagation()}>
         <input 
           type="checkbox" 
@@ -73,7 +89,12 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, onUpdate, onDelete, onTo
           className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
         />
       </td>
-      <td className="p-4">
+      <td className="p-4 relative">
+        {job.needs_review && (
+            <span className="absolute top-2 right-2 text-[10px] font-bold text-yellow-700 bg-yellow-200 px-1.5 py-0.5 rounded border border-yellow-300 z-10">
+                需复核
+            </span>
+        )}
         <div className="font-medium text-gray-900">
             {job.company} 
             {job.department && <span className="text-gray-400 font-normal mx-1">| {job.department}</span>}
@@ -89,30 +110,31 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, onUpdate, onDelete, onTo
                 onChange={(e) => onUpdate(job.id, { email: e.target.value })}
                 onBlur={() => setIsEditingEmail(false)}
                 onKeyDown={(e) => e.key === 'Enter' && setIsEditingEmail(false)}
-                className="text-sm font-mono p-1 border border-indigo-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full"
+                className={`text-sm font-mono p-1 border rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 w-full ${!job.email ? 'border-red-400 bg-red-50' : 'border-indigo-300'}`}
             />
         ) : (
              <div 
                 onClick={() => setIsEditingEmail(true)}
-                className="text-sm text-gray-600 font-mono bg-gray-50 px-2 py-1 rounded inline-block border border-gray-200 cursor-text hover:border-indigo-300"
+                className={`text-sm font-mono px-2 py-1 rounded inline-block border cursor-text hover:border-indigo-300 ${!job.email ? 'text-red-500 bg-red-50 border-red-200' : 'text-gray-600 bg-gray-50 border-gray-200'}`}
                 title="点击修改邮箱"
             >
-                {job.email}
+                {job.email || "未提取到邮箱"}
             </div>
         )}
       </td>
       <td className="p-4" onClick={(e) => e.stopPropagation()}>
+        {/* [重构] 动态显示学校名称 */}
         <select 
           value={job.profile_selected} 
           onChange={handleProfileChange}
           className={`text-xs font-semibold px-2 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-1 ${
-            job.profile_selected === ProfileType.NUS_2027 
+            job.profile_selected === ProfileType.Master 
               ? 'bg-purple-100 text-purple-700 border-purple-200 focus:ring-purple-500' 
               : 'bg-blue-100 text-blue-700 border-blue-200 focus:ring-blue-500'
           }`}
         >
-          <option value={ProfileType.XMU_Only}>XMU (基础)</option>
-          <option value={ProfileType.NUS_2027}>XMU & NUS (高潜)</option>
+          <option value={ProfileType.Base}>{userProfile.undergrad} (基础)</option>
+          <option value={ProfileType.Master}>{userProfile.undergrad} & {userProfile.master || '硕士'} (高潜)</option>
         </select>
       </td>
       <td className="p-4" onClick={(e) => e.stopPropagation()}>
@@ -136,6 +158,7 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, onUpdate, onDelete, onTo
           </div>
         )}
       </td>
+      {/* ... 状态列和按钮列不变 ... */}
       <td className="p-4">
          <span className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(job.status)}`}>
             {getStatusText(job.status)}

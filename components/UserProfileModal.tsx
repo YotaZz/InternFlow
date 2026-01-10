@@ -42,24 +42,51 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
                 <input name="emailjsServiceId" value={formData.emailjsServiceId} onChange={handleChange} placeholder="Service ID" className="p-2 border rounded text-sm"/>
                 <input name="emailjsTemplateId" value={formData.emailjsTemplateId} onChange={handleChange} placeholder="Template ID" className="p-2 border rounded text-sm"/>
                 <input name="emailjsPublicKey" value={formData.emailjsPublicKey} onChange={handleChange} placeholder="Public Key" className="p-2 border rounded text-sm"/>
-                <input name="senderEmail" value={formData.senderEmail} onChange={handleChange} placeholder="Reply-To Email" className="p-2 border rounded text-sm"/>
+                <input name="senderEmail" value={formData.senderEmail} onChange={handleChange} placeholder="发送者邮箱 (Reply-To / From)" className="p-2 border rounded text-sm"/>
              </div>
           </div>
 
           {/* Basic Info */}
           <div className="space-y-4">
-              <h4 className="font-semibold border-b pb-2">基础信息</h4>
+              <h4 className="font-semibold border-b pb-2">基础信息 (用于 AI 生成)</h4>
               <div className="grid grid-cols-2 gap-4">
-                  <input name="name" value={formData.name} onChange={handleChange} placeholder="姓名" className="p-2 border rounded"/>
-                  <input name="undergrad" value={formData.undergrad} onChange={handleChange} placeholder="本科" className="p-2 border rounded"/>
-                  <input name="master" value={formData.master || ''} onChange={handleChange} placeholder="硕士" className="p-2 border rounded"/>
-                  <input name="masterMajor" value={formData.masterMajor || ''} onChange={handleChange} placeholder="专业" className="p-2 border rounded"/>
+                  <div>
+                    <label className="text-xs text-gray-500">姓名</label>
+                    <input name="name" value={formData.name} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">本科院校</label>
+                    <input name="undergrad" value={formData.undergrad} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">硕士院校</label>
+                    <input name="master" value={formData.master || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">硕士专业</label>
+                    <input name="masterMajor" value={formData.masterMajor || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">毕业年份 (如 2027)</label>
+                    <input name="masterYear" value={formData.masterYear || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">当前年级 (如 研0)</label>
+                    <input name="currentGrade" value={formData.currentGrade || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">实习时长 (如 6个月)</label>
+                    <input name="availability" value={formData.availability} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">出勤频率 (如 每周5天)</label>
+                    <input name="frequency" value={formData.frequency} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">到岗时间</label>
+                    <input name="arrival" value={formData.arrival} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
               </div>
-          </div>
-
-          {/* 移除 bodyTemplate 编辑框，因为现在使用动态注入 */ }
-          <div className="text-xs text-gray-400 italic">
-              * 邮件正文模板请在 EmailJS Dashboard 中配置，本地仅负责注入动态变量。
           </div>
         </div>
 

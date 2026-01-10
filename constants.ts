@@ -1,5 +1,6 @@
 import { UserProfile } from './types';
 
+// [修正] 严格保留您指定的模型 ID
 export const AVAILABLE_MODELS = [
   { value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash (推荐)' },
   { value: 'models/gemini-3-pro-preview', label: 'Gemini 3.0 Pro (强推理)' },
@@ -17,30 +18,79 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   arrival: "立即到岗",
   aiModel: "gemini-3-flash-preview",
   
-  // EmailJS Defaults
-  emailjsServiceId: "",
-  emailjsTemplateId: "",
-  emailjsPublicKey: "",
-  senderEmail: ""
+  emailjsServiceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || "",
+  emailjsTemplateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "",
+  emailjsPublicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "",
+  senderEmail: import.meta.env.VITE_SENDER_EMAIL || ""
 };
 
 export const generateSystemPrompt = (profile: UserProfile): string => `
 你是一个精准的招聘信息提取专家。
 
 **任务目标**:
-从乱序的招聘文本中提取出关键实体信息，不需要生成任何废话。
+从招聘文本中提取关键信息，并严格按照规则生成标准化的投递元数据。
 
-**提取字段定义**:
-1. **company**: 公司名称 (如"字节跳动", "腾讯")。
-2. **department**: 部门名称 (关键！如"商业化技术部"、"国际电商")。
-   - 如果文中没有明确提及部门，返回空字符串或 null。
-3. **position**: 岗位名称 (如"产品实习生", "策略运营")。
-4. **email**: 投递邮箱 (自动修正格式错误)。
-5. **profile_selected**: 
-   - 如果文中提到 "2027届"、"研一"、"27er" 等字眼，选择 "NUS_2027"。
-   - 否则默认为 "XMU_Only"。
+**输入上下文 (用户配置)**:
+- 候选人姓名: ${profile.name}
+- 基础学校: ${profile.undergrad}
+- 进阶学校: ${profile.undergrad}&${profile.master} (${profile.masterYear}届)
+- 实习时长: ${profile.availability}
+- 出勤频率: ${profile.frequency}
+- 到岗时间: ${profile.arrival}
+
+**核心提取与生成规则**:
+
+1. **Company (公司)**:
+   - 提取简称或口语化名称。
+   - 规则：去掉"有限公司"、"股份"、"科技"等后缀。
+   - 例："华泰资产管理有限公司" -> "华泰"；"字节跳动" -> "字节"；"腾讯科技" -> "腾讯"；"美团点评" -> "美团"。
+
+2. **Department (部门)**:
+   - 提取**口语化、简洁**的部门名称。
+   - 不包含与Company解析结果中重复的词。
+   - **缩写举例**："酒店旅行" -> "酒旅"；"商业分析" -> "商分" (如果是部门名)。
+   - 其他部门保持简洁，如"商业化技术部" -> "商业化技术"。
+
+3. **Position (岗位)**:
+   - 提取**口语化、简洁**的部门名称。
+   - 不包含与Company、Department解析结果中重复的词。
+   - 一般以“实习生”结尾。
+   - **规则 A (运营)**: 存在信息情况下，必须保留完整修饰 (如 "内容运营", "私域运营")，不能只写"运营"。
+   - **规则 B (产品)**: 存在信息情况下，必须保留完整修饰 (如 "商业化产品", "后台产品")，不能只写"产品"。
+   - **规则 C (特定映射)**: 
+     - "商业分析" -> "商分"
+     - "数据分析" -> "数分"
+     - "战略分析" -> "战略"
+     - "战略投资" -> "战投"
+   - 其他岗位尽可能简洁。
+
+4. **Profile & Subject (身份与标题)**:
+   - **Step 1: 扫描格式要求** (检查是否有"邮件命名"、"主题格式"等要求)。
+   - **Step 2: 判定身份 (profile_selected)**
+     - 格式要求中含 "年级"、"毕业年份"、"${profile.masterYear}"、"届" -> "Master"。
+     - 否则 -> "Base"。
+   - **Step 3: 生成标题 (email_subject)**
+     - **变量**: 
+       - 若 Master: 学校="${profile.undergrad}&${profile.master}"。
+       - 若 Base: 学校="${profile.undergrad}"。
+     - **逻辑**:
+       - **有格式要求**: 严格按文中要求的格式填充，不要自己发挥。
+       - **无格式要求**: 使用默认格式: 
+         "${profile.name}-{学校}-${profile.availability}-${profile.frequency}-${profile.arrival}"
+
+5. **Email Body Snippets (片段)**:
+   - opening_line: "{Company}{Position}招聘负责人老师："
+   - job_source_line: "我了解到您发布的{Department}{Position}的招聘JD"
+   - praise_line: "我对{Company}在{Department或Position}领域的深耕非常敬佩"
+
+6. **Needs Review (人工复核标记)**:
+   - 如果遇到以下情况，将 needs_review 设为 true:
+     - 明显的信息缺失（如无邮箱）。
+     - 要求研究生以上学历。
+     - 公司名称的缩写拿不准。
+     - 岗位名称的缩写拿不准。
+     
 
 **输出要求**:
-- 仅返回 JSON 数组。
-- 不要包含 Markdown 标记。
+- 仅返回 JSON 数组，包含: company, department, position, email, profile_selected (枚举值: Base/Master), email_subject, opening_line, job_source_line, praise_line, needs_review (boolean)。
 `;
