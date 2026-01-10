@@ -12,7 +12,12 @@ export interface JobApplication {
   profile_selected: ProfileType;
   email_subject: string;
   filename: string;
-  email_body: string;
+  
+  // 修改处：不再存储完整的 email_body，而是存储三个片段
+  opening_line: string;     // 开头称呼
+  job_source_line: string;  // 来源句
+  praise_line: string;      // 敬佩句
+
   raw_requirement?: string;
   selected: boolean;
   status: 'pending' | 'sending' | 'sent' | 'error';
@@ -29,14 +34,15 @@ export interface UserProfile {
   availability: string;
   frequency: string;
   arrival: string;
-  bodyTemplate: string;
   aiModel: string;
   
   // EmailJS Config
   emailjsServiceId: string;
   emailjsTemplateId: string;
-  emailjsPublicKey: string; // User ID
-  senderEmail: string; // 用于 Reply-To
+  emailjsPublicKey: string; 
+  senderEmail: string; 
+  // bodyTemplate 字段其实废弃了，因为模板在EmailJS端，但保留接口定义防报错
+  bodyTemplate?: string; 
 }
 
 export interface ParsingResult {
@@ -47,5 +53,9 @@ export interface ParsingResult {
   profile_selected: string;
   email_subject: string;
   filename: string;
-  email_body: string;
+  
+  // 修改处：解析结果也对应三个片段
+  opening_line: string;
+  job_source_line: string;
+  praise_line: string;
 }
