@@ -4,44 +4,44 @@ export enum ProfileType {
 }
 
 export interface JobApplication {
-  id: string; // Unique ID for React keys
+  id: string;
   company: string;
-  department?: string; // New field
+  department?: string;
   position: string;
   email: string;
   profile_selected: ProfileType;
   email_subject: string;
   filename: string;
-  email_body: string; // The AI generated body
-  raw_requirement?: string; // For reference
-  selected: boolean; // For batch operations
+  email_body: string;
+  raw_requirement?: string;
+  selected: boolean;
   status: 'pending' | 'sending' | 'sent' | 'error';
-  logs: string[]; // SMTP sending logs
+  logs: string[];
 }
 
 export interface UserProfile {
   name: string;
-  undergrad: string; // e.g. Xiamen University
-  master?: string; // e.g. NUS
-  masterMajor?: string; // e.g. Computer Science
-  masterYear?: string; // e.g. 2027
-  currentGrade?: string; // e.g. 研一
-  availability: string; // e.g. 6 months
-  frequency: string; // e.g. 5 days/week
-  arrival: string; // e.g. One week notice
-  bodyTemplate: string; // The text template for the email body
-  aiModel: string; // The selected Gemini model
+  undergrad: string;
+  master?: string;
+  masterMajor?: string;
+  masterYear?: string;
+  currentGrade?: string;
+  availability: string;
+  frequency: string;
+  arrival: string;
+  bodyTemplate: string;
+  aiModel: string;
   
-  // SMTP Config
-  smtpHost: string;
-  smtpPort: string;
-  smtpUser: string;
-  smtpPass: string;
+  // EmailJS Config
+  emailjsServiceId: string;
+  emailjsTemplateId: string;
+  emailjsPublicKey: string; // User ID
+  senderEmail: string; // 用于 Reply-To
 }
 
 export interface ParsingResult {
   company: string;
-  department: string; // New field
+  department: string;
   position: string;
   email: string;
   profile_selected: string;

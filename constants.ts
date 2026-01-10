@@ -24,10 +24,11 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
 附件是我的简历，期待您的回复。
 祝工作顺利！`,
   
-  smtpHost: "smtp.qq.com",
-  smtpPort: "465",
-  smtpUser: "example@qq.com",
-  smtpPass: ""
+  // EmailJS Defaults (为空，需要用户填写)
+  emailjsServiceId: "",
+  emailjsTemplateId: "",
+  emailjsPublicKey: "",
+  senderEmail: ""
 };
 
 export const generateSystemPrompt = (profile: UserProfile): string => `
@@ -60,27 +61,27 @@ ${profile.bodyTemplate}
 2.  **身份选择与标题生成 (严格规则)**:
     检测招聘文本中是否提及了【邮件标题格式】或【投递格式要求】。
 
-    *   **情形 A**: 招聘信息中明确要求了投递格式，且格式要求中包含 **"毕业年份"**、**"届"** (如2027届) 或 **"年级"** (如研一)。
-        *   **学校字段**: 使用 "${profile.undergrad}&${profile.master}"
-        *   **身份标记**: NUS_2027
-        *   **邮件标题**: 严格按照对方要求的格式生成。
+    * **情形 A**: 招聘信息中明确要求了投递格式，且格式要求中包含 **"毕业年份"**、**"届"** (如2027届) 或 **"年级"** (如研一)。
+        * **学校字段**: 使用 "${profile.undergrad}&${profile.master}"
+        * **身份标记**: NUS_2027
+        * **邮件标题**: 严格按照对方要求的格式生成。
 
-    *   **情形 B**: 招聘信息中要求了投递格式，但 **不需要** 说明毕业年份或年级。
-        *   **学校字段**: 仅使用 "${profile.undergrad}"
-        *   **身份标记**: XMU_Only
-        *   **邮件标题**: 严格按照对方要求的格式生成。
+    * **情形 B**: 招聘信息中要求了投递格式，但 **不需要** 说明毕业年份或年级。
+        * **学校字段**: 仅使用 "${profile.undergrad}"
+        * **身份标记**: XMU_Only
+        * **邮件标题**: 严格按照对方要求的格式生成。
 
-    *   **情形 C**: 招聘信息中 **没有** 说明投递格式。
-        *   **学校字段**: 仅使用 "${profile.undergrad}"
-        *   **身份标记**: XMU_Only
-        *   **邮件标题**: 使用默认格式 -> "【${profile.name}】+【${profile.undergrad}】+【${profile.availability}】+【${profile.frequency}】+【${profile.arrival}】"
+    * **情形 C**: 招聘信息中 **没有** 说明投递格式。
+        * **学校字段**: 仅使用 "${profile.undergrad}"
+        * **身份标记**: XMU_Only
+        * **邮件标题**: 使用默认格式 -> "【${profile.name}】+【${profile.undergrad}】+【${profile.availability}】+【${profile.frequency}】+【${profile.arrival}】"
 
 3.  **文件名生成**:
-    *   必须与生成的【邮件标题】完全一致，并加上 .pdf 后缀。
+    * 必须与生成的【邮件标题】完全一致，并加上 .pdf 后缀。
 
 4.  **正文填充**:
-    *   根据用户提供的正文模板进行填充。
-    *   变量替换规则:
+    * 根据用户提供的正文模板进行填充。
+    * 变量替换规则:
         - [姓名] -> ${profile.name}
         - [学校] -> 根据上述情形确定的"学校字段" (情形A用"厦大&NUS"，其他用"厦大")
         - [年级] -> ${profile.currentGrade}

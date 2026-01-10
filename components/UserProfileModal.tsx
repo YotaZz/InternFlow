@@ -48,30 +48,33 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
              </select>
           </div>
 
-          {/* SMTP Configuration */}
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+          {/* EmailJS Configuration */}
+          <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
              <div className="flex items-center gap-2 mb-2">
-                <label className="block text-sm font-bold text-gray-800">📧 SMTP 发信配置</label>
-                <span className="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded">模拟</span>
+                <label className="block text-sm font-bold text-orange-900">📧 EmailJS 发信配置 (真实发送)</label>
              </div>
+             <p className="text-xs text-gray-500 mb-3">
+               请在 <a href="https://dashboard.emailjs.com/" target="_blank" className="text-indigo-600 underline">EmailJS Dashboard</a> 获取以下信息。
+               模板变量需配置: <code>{`{{to_name}}`}</code>, <code>{`{{to_email}}`}</code>, <code>{`{{subject}}`}</code>, <code>{`{{message}}`}</code>
+             </p>
              <div className="grid grid-cols-2 gap-4 mb-3">
                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">SMTP服务器</label>
-                   <input name="smtpHost" value={formData.smtpHost} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 text-sm" placeholder="smtp.qq.com" />
+                   <label className="block text-xs font-medium text-gray-500 mb-1">Service ID</label>
+                   <input name="emailjsServiceId" value={formData.emailjsServiceId} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 text-sm" placeholder="service_xxxx" />
                 </div>
                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">端口</label>
-                   <input name="smtpPort" value={formData.smtpPort} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 text-sm" placeholder="465" />
+                   <label className="block text-xs font-medium text-gray-500 mb-1">Template ID</label>
+                   <input name="emailjsTemplateId" value={formData.emailjsTemplateId} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 text-sm" placeholder="template_xxxx" />
                 </div>
              </div>
              <div className="grid grid-cols-2 gap-4">
                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">账号 (User)</label>
-                   <input name="smtpUser" value={formData.smtpUser} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 text-sm" />
+                   <label className="block text-xs font-medium text-gray-500 mb-1">Public Key (User ID)</label>
+                   <input name="emailjsPublicKey" value={formData.emailjsPublicKey} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 text-sm" placeholder="user_xxxx 或 public_key" />
                 </div>
                 <div>
-                   <label className="block text-xs font-medium text-gray-500 mb-1">授权码 (Password)</label>
-                   <input type="password" name="smtpPass" value={formData.smtpPass} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 text-sm" />
+                   <label className="block text-xs font-medium text-gray-500 mb-1">您的回信邮箱 (Reply-To)</label>
+                   <input name="senderEmail" value={formData.senderEmail} onChange={handleChange} className="w-full p-2 border border-gray-300 rounded focus:ring-indigo-500 text-sm" placeholder="your.email@example.com" />
                 </div>
              </div>
           </div>

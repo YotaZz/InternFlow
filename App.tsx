@@ -6,6 +6,7 @@ import UserProfileModal from './components/UserProfileModal';
 import { parseRecruitmentText } from './services/geminiService';
 import { JobApplication, ProfileType, ParsingResult, UserProfile } from './types';
 import { DEFAULT_USER_PROFILE } from './constants';
+import emailjs from '@emailjs/browser';
 
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -92,6 +93,12 @@ const App: React.FC = () => {
     const jobsToSend = jobs.filter(j => j.selected && j.status !== 'sent');
     if (jobsToSend.length === 0) return;
 
+    if (!userProfile.emailjsServiceId || !userProfile.emailjsPublicKey || !userProfile.emailjsTemplateId) {
+        alert("请先在设置中配置 EmailJS 参数");
+        setIsProfileModalOpen(true);
+        return;
+    }
+
     setIsSending(true);
     setSendProgress(0);
 
@@ -101,18 +108,21 @@ const App: React.FC = () => {
     // We simulate batch by triggering individual sends with delay
     jobsToSend.forEach((job, index) => {
         setTimeout(() => {
-            simulateSmtpSend(job.id);
+            handleSendEmail(job.id);
             processedCount++;
             setSendProgress((processedCount / jobsToSend.length) * 100);
             
             if (processedCount === jobsToSend.length) {
                 setTimeout(() => setIsSending(false), 2000);
             }
-        }, index * 3000); // 3 seconds apart
+        }, index * 2000); // 2 seconds apart to avoid rate limits
     });
   };
 
-  const simulateSmtpSend = (jobId: string) => {
+  const handleSendEmail = async (jobId: string) => {
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
     const addLog = (msg: string) => {
         const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
         const logLine = `[${time}] ${msg}`;
@@ -132,19 +142,44 @@ const App: React.FC = () => {
         });
     };
 
-    updateJob(jobId, { status: 'sending', logs: [] });
+    if (!userProfile.emailjsServiceId || !userProfile.emailjsPublicKey || !userProfile.emailjsTemplateId) {
+        addLog("Error: EmailJS config missing.");
+        updateJob(jobId, { status: 'error' });
+        return;
+    }
 
-    // SMTP Simulation Sequence
-    setTimeout(() => addLog(`Resolving host ${userProfile.smtpHost || 'smtp.qq.com'}...`), 500);
-    setTimeout(() => addLog(`Connecting to ${userProfile.smtpHost || 'smtp.qq.com'}:${userProfile.smtpPort || '465'}...`), 1000);
-    setTimeout(() => addLog(`Connected. Handshake success.`), 1500);
-    setTimeout(() => addLog(`Authenticating as ${userProfile.smtpUser || 'user'}...`), 2000);
-    setTimeout(() => addLog(`Auth successful. Sending headers...`), 2800);
-    setTimeout(() => addLog(`Transmitting payload (Attachment: .pdf, Size: 1.2MB)...`), 3500);
-    setTimeout(() => {
-        addLog(`Email queued for delivery. 250 OK.`);
-        updateJob(jobId, { status: 'sent' });
-    }, 4500);
+    updateJob(jobId, { status: 'sending', logs: [] });
+    addLog(`Initializing EmailJS send to ${job.email}...`);
+
+    try {
+        const templateParams = {
+            to_name: job.company,    // 对应 EmailJS 模板 {{to_name}}
+            to_email: job.email,     // 对应 EmailJS 模板 {{to_email}}
+            subject: job.email_subject, // 对应 EmailJS 模板 {{subject}}
+            message: job.email_body,    // 对应 EmailJS 模板 {{message}}
+            from_name: userProfile.name, // 对应 EmailJS 模板 {{from_name}}
+            reply_to: userProfile.senderEmail // 对应 EmailJS 模板 {{reply_to}}
+        };
+
+        const response = await emailjs.send(
+            userProfile.emailjsServiceId,
+            userProfile.emailjsTemplateId,
+            templateParams,
+            userProfile.emailjsPublicKey
+        );
+
+        if (response.status === 200) {
+            addLog(`Success! ID: ${response.text}`);
+            updateJob(jobId, { status: 'sent' });
+        } else {
+            addLog(`Failed with status: ${response.status}`);
+            updateJob(jobId, { status: 'error' });
+        }
+    } catch (error: any) {
+        console.error("EmailJS Error:", error);
+        addLog(`Error: ${error.text || error.message || 'Unknown error'}`);
+        updateJob(jobId, { status: 'error' });
+    }
   };
 
   return (
@@ -160,7 +195,7 @@ const App: React.FC = () => {
                 </div>
                 <div>
                     <h1 className="text-xl font-bold text-gray-900 tracking-tight">InternFlow AI</h1>
-                    <p className="text-xs text-gray-500 font-medium">智能简历投递系统 V3.0</p>
+                    <p className="text-xs text-gray-500 font-medium">智能简历投递系统 V3.0 (EmailJS版)</p>
                 </div>
             </div>
             <div className="flex items-center gap-4">
@@ -298,7 +333,7 @@ const App: React.FC = () => {
                             className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-6 py-2 rounded-lg font-semibold shadow-sm transition-all flex items-center gap-2"
                         >
                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                             一键 SMTP 批量发送
+                             EmailJS 批量发送
                         </button>
                     )}
                 </div>
@@ -311,7 +346,7 @@ const App: React.FC = () => {
         <EmailPreviewModal 
             job={previewJob} 
             onClose={() => setPreviewJob(null)} 
-            onSendSingle={() => simulateSmtpSend(previewJob.id)}
+            onSendSingle={() => handleSendEmail(previewJob.id)}
             onUpdate={updateJob}
         />
       )}
