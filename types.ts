@@ -75,3 +75,35 @@ export interface ParsingResult {
   pass_filter: boolean;
   filter_reason?: string;
 }
+
+
+
+export type JobStatus = 'pending' | 'filtered' | 'sent' | 'interview' | 'error';
+
+export interface JobApplication {
+  id: string; // UUID
+  company: string;
+  department?: string;
+  position: string;
+  email: string;
+  
+  status: JobStatus; // 数据库核心字段
+  
+  profile_selected: ProfileType;
+  email_subject: string;
+  opening_line: string;
+  job_source_line: string;
+  praise_line: string;
+
+  needs_review?: boolean;
+  review_reason?: string;
+  pass_filter: boolean;
+  filter_reason?: string;
+  raw_requirement?: string;
+
+  // 前端辅助字段 (UI用)
+  selected?: boolean; 
+  logs?: string[];
+  filename?: string;
+}
+
