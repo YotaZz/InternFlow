@@ -1,0 +1,5 @@
+{
+  "name": "InternFlow AI",
+  "description": "An AI-native internship application automation tool. Parses unstructured recruitment text, intelligently selects the best candidate persona (XMU vs NUS), and generates tailored email content.",
+  "requestFramePermissions": []
+}
