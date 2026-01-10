@@ -1,10 +1,25 @@
 import { UserProfile } from './types';
 
-// [修正] 严格保留您指定的模型 ID
+// [修正] 严格恢复您指定的 Gemini 3.0 模型 ID，不作修改
 export const AVAILABLE_MODELS = [
   { value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash (推荐)' },
   { value: 'models/gemini-3-pro-preview', label: 'Gemini 3.0 Pro (强推理)' },
 ];
+
+// [新增] 默认的邮件 HTML 模板 (用于 Nodemailer)
+const DEFAULT_MAIL_TEMPLATE = `
+<p>{{opening_line}}</p>
+<p>{{job_source_line}}</p>
+<p>{{praise_line}}</p>
+<br/>
+<p>我是{{name}}，{{master_info}}本科毕业于{{undergrad}}。</p>
+<p>目前{{currentGrade}}，{{availability}}，{{frequency}}，{{arrival}}。</p>
+<br/>
+<p>附件是我的简历，希望能有机会加入{{company}}！期待您的回复。</p>
+<br/>
+<p>祝好，</p>
+<p>{{name}}</p>
+`;
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
   name: "邹宇涛",
@@ -16,14 +31,15 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   availability: "6个月",
   frequency: "每周5天",
   arrival: "立即到岗",
+  // [修正] 恢复默认模型为 Gemini 3.0 Flash
   aiModel: "gemini-3-flash-preview",
   
-  emailjsServiceId: import.meta.env.VITE_EMAILJS_SERVICE_ID || "",
-  emailjsTemplateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "",
-  emailjsPublicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "",
-  senderEmail: import.meta.env.VITE_SENDER_EMAIL || ""
+  // [修改] 移除 EmailJS 配置，改为 Nodemailer 所需配置
+  senderEmail: import.meta.env.VITE_SENDER_EMAIL || "", // 用于 Reply-To
+  bodyTemplate: DEFAULT_MAIL_TEMPLATE // 本地存储的邮件正文模板
 };
 
+// [重要] 完整保留原版详细 Prompt，绝不精简
 export const generateSystemPrompt = (profile: UserProfile): string => `
 你是一个精准的招聘信息提取专家。
 

@@ -6,11 +6,11 @@ import UserProfileModal from './components/UserProfileModal';
 import { parseRecruitmentText } from './services/geminiService';
 import { JobApplication, ProfileType, ParsingResult, UserProfile } from './types';
 import { DEFAULT_USER_PROFILE } from './constants';
-import emailjs from '@emailjs/browser';
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const App: React.FC = () => {
+  // ... (状态定义保持不变)
   const [apiKey, setApiKey] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
   const [isParsing, setIsParsing] = useState<boolean>(false);
@@ -23,7 +23,7 @@ const App: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
 
-
+  // ... (handleParse, updateJob, deleteJob, toggleSelect... 保持不变)
   const handleParse = async () => {
     if (!apiKey) {
       alert("请先配置 API Key");
@@ -36,9 +36,6 @@ const App: React.FC = () => {
       const results: ParsingResult[] = await parseRecruitmentText(apiKey, inputText, userProfile);
       
       const newJobs: JobApplication[] = results.map(res => {
-        // [修改] 移除旧的 subject 和 schoolStr 拼接逻辑
-        // 直接使用 AI 返回的 email_subject 和 profile_selected
-
         return {
             id: generateId(),
             company: res.company,
@@ -46,16 +43,12 @@ const App: React.FC = () => {
             position: res.position,
             email: res.email,
             profile_selected: res.profile_selected as ProfileType,
-            
-            // [修改] 直接使用 AI 生成的标题
             email_subject: res.email_subject,
-            filename: `${res.email_subject}.pdf`, // 简历文件名与标题一致
-            
+            filename: `${res.email_subject}.pdf`, 
             opening_line: res.opening_line,
             job_source_line: res.job_source_line,
             praise_line: res.praise_line,
-	    needs_review: res.needs_review,
-
+	        needs_review: res.needs_review,
             raw_requirement: inputText,
             selected: true,
             status: 'pending',
@@ -72,8 +65,8 @@ const App: React.FC = () => {
       setIsParsing(false);
     }
   };
-
-
+  
+  // 辅助函数：更新 Job
   const updateJob = (id: string, updates: Partial<JobApplication>) => {
     setJobs(prev => {
         const newJobs = prev.map(job => job.id === id ? { ...job, ...updates } : job);
@@ -83,16 +76,14 @@ const App: React.FC = () => {
         return newJobs;
     });
   };
-
+  // 辅助函数
   const deleteJob = (id: string) => {
     setJobs(prev => prev.filter(job => job.id !== id));
     if (previewJob?.id === id) setPreviewJob(null);
   };
-
   const toggleSelect = (id: string) => {
     setJobs(prev => prev.map(job => job.id === id ? { ...job, selected: !job.selected } : job));
   };
-
   const toggleSelectAll = () => {
     const allSelected = jobs.length > 0 && jobs.every(j => j.selected);
     setJobs(prev => prev.map(j => ({ ...j, selected: !allSelected })));
@@ -102,8 +93,8 @@ const App: React.FC = () => {
     const jobsToSend = jobs.filter(j => j.selected && j.status !== 'sent');
     if (jobsToSend.length === 0) return;
 
-    if (!userProfile.emailjsServiceId || !userProfile.emailjsPublicKey || !userProfile.emailjsTemplateId) {
-        alert("请先在设置中配置 EmailJS 参数");
+    if (!userProfile.senderEmail) {
+        alert("请先在设置中配置回复邮箱 (Sender Email)");
         setIsProfileModalOpen(true);
         return;
     }
@@ -122,10 +113,11 @@ const App: React.FC = () => {
             if (processedCount === jobsToSend.length) {
                 setTimeout(() => setIsSending(false), 2000);
             }
-        }, index * 2000); 
+        }, index * 2000); // 间隔发送，防止触发垃圾邮件风控
     });
   };
 
+  // [修改] 发送邮件逻辑：调用后端 API
   const handleSendEmail = async (jobId: string) => {
     const job = jobs.find(j => j.id === jobId);
     if (!job) return;
@@ -143,47 +135,68 @@ const App: React.FC = () => {
     };
 
     updateJob(jobId, { status: 'sending', logs: [] });
-    addLog(`Initializing EmailJS send to ${job.email}...`);
+    addLog(`Preparing to send via Nodemailer to ${job.email}...`);
 
     try {
-        const templateParams = {
-            // 变量注入
-            opening_line: job.opening_line,
-            job_source_line: job.job_source_line,
-            praise_line: job.praise_line,
-            
-            // 固定信息
-            to_name: job.company,
-            to_email: job.email,
-            subject: job.email_subject,
-            from_name: userProfile.name,
-            // [Fix Issue 1] 增加 from_email 透传，并保留 reply_to
-            reply_to: userProfile.senderEmail,
-            from_email: userProfile.senderEmail
-        };
+        // 1. 构建邮件正文 (简单的模板替换)
+        let mailBody = userProfile.bodyTemplate || "";
+        
+        // 替换 AI 生成的动态变量
+        mailBody = mailBody.replace(/{{opening_line}}/g, job.opening_line);
+        mailBody = mailBody.replace(/{{job_source_line}}/g, job.job_source_line);
+        mailBody = mailBody.replace(/{{praise_line}}/g, job.praise_line);
+        mailBody = mailBody.replace(/{{company}}/g, job.company);
+        
+        // 替换用户基础信息
+        mailBody = mailBody.replace(/{{name}}/g, userProfile.name);
+        mailBody = mailBody.replace(/{{undergrad}}/g, userProfile.undergrad);
+        mailBody = mailBody.replace(/{{availability}}/g, userProfile.availability);
+        mailBody = mailBody.replace(/{{frequency}}/g, userProfile.frequency);
+        mailBody = mailBody.replace(/{{arrival}}/g, userProfile.arrival);
+        mailBody = mailBody.replace(/{{currentGrade}}/g, userProfile.currentGrade || '');
+        
+        // 特殊逻辑：本硕信息拼接
+        const masterInfo = userProfile.master 
+            ? `硕士就读于${userProfile.master}${userProfile.masterMajor ? `(${userProfile.masterMajor})` : ''}，` 
+            : "";
+        mailBody = mailBody.replace(/{{master_info}}/g, masterInfo);
 
-        const response = await emailjs.send(
-            userProfile.emailjsServiceId,
-            userProfile.emailjsTemplateId,
-            templateParams,
-            userProfile.emailjsPublicKey
-        );
+        // 2. 调用后端 API
+        const response = await fetch('/api/send_email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                to: job.email,
+                subject: job.email_subject,
+                html: mailBody,
+                replyTo: userProfile.senderEmail,
+                fromName: userProfile.name
+            })
+        });
 
-        if (response.status === 200) {
-            addLog(`Success! ID: ${response.text}`);
+        const data = await response.json();
+
+        if (response.ok) {
+            addLog(`Success! ID: ${data.messageId}`);
             updateJob(jobId, { status: 'sent' });
         } else {
-            addLog(`Failed with status: ${response.status}`);
+            addLog(`Failed: ${data.error}`);
             updateJob(jobId, { status: 'error' });
         }
     } catch (error: any) {
-        console.error("EmailJS Error:", error);
-        addLog(`Error: ${error.text || error.message || 'Unknown error'}`);
+        console.error("API Error:", error);
+        addLog(`Error: ${error.message || 'Network error'}`);
         updateJob(jobId, { status: 'error' });
     }
   };
 
   return (
+     // ... (JSX 保持不变，除了 "EmailJS 批量发送" 按钮文字建议修改)
+     // 修改这一行:
+     // <button onClick={handleBatchSend} ...> EmailJS 批量发送 </button>
+     // 为:
+     // <button onClick={handleBatchSend} ...> 批量发送 (Nodemailer) </button>
+
     <div className="min-h-screen flex flex-col font-sans text-slate-800">
       <ApiKeyInput onApiKeySet={setApiKey} />
 
@@ -193,7 +206,7 @@ const App: React.FC = () => {
                 <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg">IF</div>
                 <div>
                     <h1 className="text-xl font-bold text-gray-900 tracking-tight">InternFlow AI</h1>
-                    <p className="text-xs text-gray-500 font-medium">智能简历投递系统 V3.1</p>
+                    <p className="text-xs text-gray-500 font-medium">智能简历投递系统 V3.2 (SMTP版)</p>
                 </div>
             </div>
             <div className="flex items-center gap-4">
@@ -251,7 +264,7 @@ const App: React.FC = () => {
                                 <JobEntryRow 
                                     key={job.id} 
                                     job={job} 
-				    userProfile={userProfile}
+				                    userProfile={userProfile}
                                     onUpdate={updateJob}
                                     onDelete={deleteJob}
                                     onToggleSelect={toggleSelect}
@@ -265,7 +278,7 @@ const App: React.FC = () => {
                      <div className="text-sm text-gray-500">已选 {jobs.filter(j => j.selected).length} 项</div>
                      {!isSending && (
                         <button onClick={handleBatchSend} disabled={!jobs.some(j => j.selected)} className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold disabled:bg-gray-300">
-                             EmailJS 批量发送
+                             批量发送 (SMTP)
                         </button>
                      )}
                 </div>

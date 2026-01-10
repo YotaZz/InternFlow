@@ -20,7 +20,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
         <div className="bg-indigo-600 px-6 py-4 flex justify-between items-center shrink-0">
-          <h3 className="text-lg font-bold text-white">设置</h3>
+          <h3 className="text-lg font-bold text-white">系统设置</h3>
           <button onClick={onClose} className="text-indigo-100 hover:text-white">✕</button>
         </div>
 
@@ -35,21 +35,43 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
              </select>
           </div>
 
-          {/* EmailJS */}
-          <div className="bg-orange-50 p-4 rounded border border-orange-200">
-             <label className="block text-sm font-bold text-orange-900 mb-2">EmailJS 配置</label>
-             <div className="grid grid-cols-2 gap-4">
-                <input name="emailjsServiceId" value={formData.emailjsServiceId} onChange={handleChange} placeholder="Service ID" className="p-2 border rounded text-sm"/>
-                <input name="emailjsTemplateId" value={formData.emailjsTemplateId} onChange={handleChange} placeholder="Template ID" className="p-2 border rounded text-sm"/>
-                <input name="emailjsPublicKey" value={formData.emailjsPublicKey} onChange={handleChange} placeholder="Public Key" className="p-2 border rounded text-sm"/>
-                <input name="senderEmail" value={formData.senderEmail} onChange={handleChange} placeholder="发送者邮箱 (Reply-To / From)" className="p-2 border rounded text-sm"/>
+          {/* Email Config */}
+          <div className="bg-green-50 p-4 rounded border border-green-200">
+             <label className="block text-sm font-bold text-green-900 mb-2">邮件发送配置 (Vercel + Nodemailer)</label>
+             <p className="text-xs text-green-700 mb-3">
+               注意：请确保在 Vercel 项目设置的 "Environment Variables" 中配置了 
+               <code className="bg-green-100 px-1 mx-1 rounded">QQ_EMAIL</code> 和 
+               <code className="bg-green-100 px-1 mx-1 rounded">QQ_PASSWORD</code> (授权码)。
+             </p>
+             <div className="grid grid-cols-1 gap-4">
+                <div>
+                   <label className="text-xs text-gray-500">回复邮箱 (Reply-To)</label>
+                   <input 
+                     name="senderEmail" 
+                     value={formData.senderEmail} 
+                     onChange={handleChange} 
+                     placeholder="HR 回复时收信的邮箱 (如您的个人邮箱)" 
+                     className="w-full p-2 border rounded text-sm"
+                   />
+                </div>
+                <div>
+                   <label className="text-xs text-gray-500 mb-1 block">邮件正文模板 (支持 HTML)</label>
+                   <p className="text-[10px] text-gray-400 mb-2">可用变量: {'{{opening_line}}, {{job_source_line}}, {{praise_line}}, {{name}}, {{undergrad}}, {{master_info}}, {{availability}}, {{company}} ...'}</p>
+                   <textarea
+                     name="bodyTemplate"
+                     value={formData.bodyTemplate}
+                     onChange={handleChange}
+                     className="w-full p-2 border rounded text-xs font-mono h-32"
+                   />
+                </div>
              </div>
           </div>
 
           {/* Basic Info */}
           <div className="space-y-4">
-              <h4 className="font-semibold border-b pb-2">基础信息 (用于 AI 生成)</h4>
+              <h4 className="font-semibold border-b pb-2">基础信息 (用于 AI 生成及邮件填充)</h4>
               <div className="grid grid-cols-2 gap-4">
+                  {/* ... 保持原有字段 ... */}
                   <div>
                     <label className="text-xs text-gray-500">姓名</label>
                     <input name="name" value={formData.name} onChange={handleChange} className="w-full p-2 border rounded"/>
@@ -67,19 +89,19 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
                     <input name="masterMajor" value={formData.masterMajor || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500">毕业年份 (如 2027)</label>
+                    <label className="text-xs text-gray-500">毕业年份</label>
                     <input name="masterYear" value={formData.masterYear || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500">当前年级 (如 研0)</label>
+                    <label className="text-xs text-gray-500">当前年级</label>
                     <input name="currentGrade" value={formData.currentGrade || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500">实习时长 (如 6个月)</label>
+                    <label className="text-xs text-gray-500">实习时长</label>
                     <input name="availability" value={formData.availability} onChange={handleChange} className="w-full p-2 border rounded"/>
                   </div>
                   <div>
-                    <label className="text-xs text-gray-500">出勤频率 (如 每周5天)</label>
+                    <label className="text-xs text-gray-500">出勤频率</label>
                     <input name="frequency" value={formData.frequency} onChange={handleChange} className="w-full p-2 border rounded"/>
                   </div>
                   <div>

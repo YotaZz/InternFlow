@@ -1,7 +1,7 @@
 {
   "name": "internflow-ai",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
     "react-dom": "^19.2.3",
     "@google/genai": "^1.35.0",
     "uuid": "^13.0.0",
-    "@emailjs/browser": "^4.0.0"
+    "nodemailer": "^6.9.13" 
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

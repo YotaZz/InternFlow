@@ -1,7 +1,7 @@
 // [重构] 移除具体学校名称，使用通用代号
 export enum ProfileType {
-  Base = 'Base',      // 对应原本的 "仅本科" (XMU_Only)
-  Master = 'Master',  // 对应原本的 "本硕" (NUS_2027)
+  Base = 'Base',      // 对应 "仅本科"
+  Master = 'Master',  // 对应 "本硕"
 }
 
 export interface JobApplication {
@@ -38,12 +38,9 @@ export interface UserProfile {
   arrival: string;
   aiModel: string;
   
-  emailjsServiceId: string;
-  emailjsTemplateId: string;
-  emailjsPublicKey: string; 
-  senderEmail: string; 
-  
-  bodyTemplate?: string; 
+  // [修改] 移除 EmailJS 字段，改为通用邮件配置
+  senderEmail: string; // 用于 Reply-To
+  bodyTemplate: string; // 本地存储的邮件正文模板
 }
 
 export interface ParsingResult {
