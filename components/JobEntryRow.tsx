@@ -1,9 +1,9 @@
+// components/JobEntryRow.tsx
 import React, { useState } from 'react';
 import { JobApplication, ProfileType, UserProfile } from '../types';
 
 interface JobEntryRowProps {
   job: JobApplication;
-  // [新增] 引入 userProfile 以实现动态渲染
   userProfile: UserProfile;
   onUpdate: (id: string, updates: Partial<JobApplication>) => void;
   onDelete: (id: string) => void;
@@ -15,7 +15,6 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, userProfile, onUpdate, o
   const [isEditingSubject, setIsEditingSubject] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
 
-  // [重构] 动态替换逻辑，不再硬编码 "厦门大学" 或 "NUS"
   const handleProfileChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     e.stopPropagation();
     const newProfile = e.target.value as ProfileType;
@@ -25,14 +24,11 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, userProfile, onUpdate, o
     const masterSchool = userProfile.master || '';
     const fullSchool = `${baseSchool}&${masterSchool}`;
 
-    // 如果从 Base 切换到 Master (需要添加硕士信息)
     if (newProfile === ProfileType.Master && job.profile_selected === ProfileType.Base) {
-       // 尝试将仅含本科的替换为本硕
        if (newSubject.includes(baseSchool)) {
            newSubject = newSubject.replace(baseSchool, fullSchool);
        }
     } 
-    // 如果从 Master 切换到 Base (需要移除硕士信息)
     else if (newProfile === ProfileType.Base && job.profile_selected === ProfileType.Master) {
        if (newSubject.includes(fullSchool)) {
            newSubject = newSubject.replace(fullSchool, baseSchool);
@@ -91,7 +87,10 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, userProfile, onUpdate, o
       </td>
       <td className="p-4 relative">
         {job.needs_review && (
-            <span className="absolute top-2 right-2 text-[10px] font-bold text-yellow-700 bg-yellow-200 px-1.5 py-0.5 rounded border border-yellow-300 z-10">
+            <span 
+                title={job.review_reason || "AI 建议复核"}
+                className="absolute top-2 right-2 text-[10px] font-bold text-yellow-700 bg-yellow-200 px-1.5 py-0.5 rounded border border-yellow-300 z-10 cursor-help"
+            >
                 需复核
             </span>
         )}
@@ -123,7 +122,6 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, userProfile, onUpdate, o
         )}
       </td>
       <td className="p-4" onClick={(e) => e.stopPropagation()}>
-        {/* [重构] 动态显示学校名称 */}
         <select 
           value={job.profile_selected} 
           onChange={handleProfileChange}
@@ -134,7 +132,8 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, userProfile, onUpdate, o
           }`}
         >
           <option value={ProfileType.Base}>{userProfile.undergrad} (基础)</option>
-          <option value={ProfileType.Master}>{userProfile.undergrad} & {userProfile.master || '硕士'} (高潜)</option>
+          {/* [修改] 移除了 (高潜) */}
+          <option value={ProfileType.Master}>{userProfile.undergrad} & {userProfile.master || '硕士'}</option>
         </select>
       </td>
       <td className="p-4" onClick={(e) => e.stopPropagation()}>
@@ -158,7 +157,6 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({ job, userProfile, onUpdate, o
           </div>
         )}
       </td>
-      {/* ... 状态列和按钮列不变 ... */}
       <td className="p-4">
          <span className={`text-xs px-2 py-1 rounded-full border ${getStatusColor(job.status)}`}>
             {getStatusText(job.status)}

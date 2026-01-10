@@ -1,7 +1,7 @@
-// [重构] 移除具体学校名称，使用通用代号
+// types.ts
 export enum ProfileType {
-  Base = 'Base',      // 对应 "仅本科"
-  Master = 'Master',  // 对应 "本硕"
+  Base = 'Base',
+  Master = 'Master',
 }
 
 export interface JobApplication {
@@ -24,11 +24,19 @@ export interface JobApplication {
   logs: string[];
   
   needs_review?: boolean;
+  review_reason?: string;
+
+  // [新增] 筛选相关
+  pass_filter: boolean;
+  filter_reason?: string;
 }
 
 export interface UserProfile {
   name: string;
   undergrad: string;
+  // [新增] 本科专业
+  undergradMajor: string;
+
   master?: string;
   masterMajor?: string;
   masterYear?: string;
@@ -38,9 +46,14 @@ export interface UserProfile {
   arrival: string;
   aiModel: string;
   
-  // [修改] 移除 EmailJS 字段，改为通用邮件配置
-  senderEmail: string; // 用于 Reply-To
-  bodyTemplate: string; // 本地存储的邮件正文模板
+  senderEmail: string; 
+  smtpUser?: string;
+  smtpPass?: string;
+
+  bodyTemplate: string;
+  
+  // [新增] 岗位筛选条件
+  filterCriteria: string;
 }
 
 export interface ParsingResult {
@@ -56,4 +69,9 @@ export interface ParsingResult {
   praise_line: string;
 
   needs_review: boolean;
+  review_reason?: string;
+
+  // [新增]
+  pass_filter: boolean;
+  filter_reason?: string;
 }

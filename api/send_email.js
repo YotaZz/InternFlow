@@ -1,7 +1,8 @@
+// api/send_email.js
 import nodemailer from 'nodemailer';
+import path from 'path';
 
 export default async function handler(req, res) {
-  // 设置 CORS 头（如果前后端分离部署需要，Vercel同域部署一般不需要，但加上保险）
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -19,36 +20,66 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { to, subject, html, replyTo, fromName } = req.body;
+  const { to, subject, html, replyTo, fromName, smtpUser, smtpPass } = req.body;
 
-  if (!process.env.QQ_EMAIL || !process.env.QQ_PASSWORD) {
-    return res.status(500).json({ error: 'Server misconfigured: Missing QQ Mail credentials' });
+  const user = smtpUser || process.env.QQ_EMAIL;
+  const pass = smtpPass || process.env.QQ_PASSWORD;
+
+  if (!user || !pass) {
+    return res.status(500).json({ error: 'Missing SMTP credentials (User/Pass)' });
+  }
+
+  // [新增] 邮箱地址标准化处理
+  // 1. 将中文逗号(，)和分号(;)替换为英文逗号(,)
+  // 2. 去除首尾空格
+  const normalizeRecipients = (recipients) => {
+      if (!recipients) return '';
+      return recipients
+        .replace(/，/g, ',') // 替换中文逗号
+        .replace(/;/g, ',')  // 替换分号
+        .replace(/\s*,\s*/g, ',') // 去除逗号周围的空格
+        .trim();
+  };
+
+  const safeTo = normalizeRecipients(to);
+
+  if (!safeTo) {
+      return res.status(400).json({ error: 'No valid recipients parsed' });
   }
 
   try {
-    // 配置 QQ 邮箱 SMTP
     const transporter = nodemailer.createTransport({
-      service: 'qq', // 内置了 QQ 邮箱的配置 (smtp.qq.com, 465, secure)
+      service: 'qq', 
       auth: {
-        user: process.env.QQ_EMAIL,
-        pass: process.env.QQ_PASSWORD, // 这里的密码是 QQ 邮箱的 "授权码"
+        user: user,
+        pass: pass, 
       },
     });
 
-    // 发送邮件
+    const resumePath = path.resolve(process.cwd(), 'resume.pdf');
+
     const info = await transporter.sendMail({
-      from: `"${fromName || 'InternFlow AI'}" <${process.env.QQ_EMAIL}>`, // 发件人必须与认证账户一致
-      to: to,
+      from: `"${fromName || 'InternFlow AI'}" <${user}>`, 
+      to: safeTo, // 使用清洗后的地址列表
       subject: subject,
       html: html,
-      replyTo: replyTo, // 设置回复地址为用户的个人邮箱
+      replyTo: replyTo || user,
+      attachments: [
+        {
+            filename: `${subject}.pdf`, 
+            path: resumePath
+        }
+      ]
     });
 
-    console.log('Message sent: %s', info.messageId);
+    console.log('Message sent: %s to %s', info.messageId, safeTo);
     return res.status(200).json({ success: true, messageId: info.messageId });
 
   } catch (error) {
     console.error('Email send error:', error);
+    if (error.code === 'ENOENT') {
+        return res.status(500).json({ error: 'Resume file (resume.pdf) not found in project root.' });
+    }
     return res.status(500).json({ error: error.message || 'Failed to send email' });
   }
 }

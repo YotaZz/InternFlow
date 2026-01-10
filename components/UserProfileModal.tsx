@@ -1,3 +1,4 @@
+// components/UserProfileModal.tsx
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { AVAILABLE_MODELS } from '../constants';
@@ -25,8 +26,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto">
-          {/* AI Model */}
-          <div>
+           {/* AI Model */}
+           <div>
              <label className="block text-sm font-bold text-gray-700 mb-2">AI 模型</label>
              <select name="aiModel" value={formData.aiModel} onChange={handleChange} className="w-full p-2 border rounded">
                 {AVAILABLE_MODELS.map(model => (
@@ -35,14 +36,47 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
              </select>
           </div>
 
+          {/* [新增] 岗位筛选配置 */}
+          <div className="bg-orange-50 p-4 rounded border border-orange-200">
+             <label className="block text-sm font-bold text-orange-900 mb-2">智能岗位筛选</label>
+             <p className="text-xs text-orange-700 mb-2">
+               AI 将根据以下条件自动判断岗位是否合适。未通过筛选的岗位将进入“已过滤”列表。
+             </p>
+             <textarea
+               name="filterCriteria"
+               value={formData.filterCriteria}
+               onChange={handleChange}
+               className="w-full p-2 border rounded text-xs font-mono h-20"
+               placeholder="例如：不要技术岗、不要HR..."
+             />
+          </div>
+
           {/* Email Config */}
           <div className="bg-green-50 p-4 rounded border border-green-200">
-             <label className="block text-sm font-bold text-green-900 mb-2">邮件发送配置 (Vercel + Nodemailer)</label>
-             <p className="text-xs text-green-700 mb-3">
-               注意：请确保在 Vercel 项目设置的 "Environment Variables" 中配置了 
-               <code className="bg-green-100 px-1 mx-1 rounded">QQ_EMAIL</code> 和 
-               <code className="bg-green-100 px-1 mx-1 rounded">QQ_PASSWORD</code> (授权码)。
-             </p>
+             <label className="block text-sm font-bold text-green-900 mb-2">邮件发送配置 (SMTP)</label>
+             <div className="grid grid-cols-2 gap-4 mb-4">
+                 <div>
+                    <label className="text-xs text-gray-500 font-bold">发件邮箱 (SMTP User)</label>
+                    <input 
+                      name="smtpUser" 
+                      value={formData.smtpUser || ''} 
+                      onChange={handleChange} 
+                      placeholder="例: 123456@qq.com" 
+                      className="w-full p-2 border rounded text-sm"
+                    />
+                 </div>
+                 <div>
+                    <label className="text-xs text-gray-500 font-bold">授权码 (SMTP Pass)</label>
+                    <input 
+                      type="password"
+                      name="smtpPass" 
+                      value={formData.smtpPass || ''} 
+                      onChange={handleChange} 
+                      placeholder="QQ邮箱16位授权码" 
+                      className="w-full p-2 border rounded text-sm"
+                    />
+                 </div>
+             </div>
              <div className="grid grid-cols-1 gap-4">
                 <div>
                    <label className="text-xs text-gray-500">回复邮箱 (Reply-To)</label>
@@ -50,13 +84,12 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
                      name="senderEmail" 
                      value={formData.senderEmail} 
                      onChange={handleChange} 
-                     placeholder="HR 回复时收信的邮箱 (如您的个人邮箱)" 
+                     placeholder={formData.smtpUser ? `默认为: ${formData.smtpUser}` : "HR 回复时收信的邮箱"}
                      className="w-full p-2 border rounded text-sm"
                    />
                 </div>
                 <div>
                    <label className="text-xs text-gray-500 mb-1 block">邮件正文模板 (支持 HTML)</label>
-                   <p className="text-[10px] text-gray-400 mb-2">可用变量: {'{{opening_line}}, {{job_source_line}}, {{praise_line}}, {{name}}, {{undergrad}}, {{master_info}}, {{availability}}, {{company}} ...'}</p>
                    <textarea
                      name="bodyTemplate"
                      value={formData.bodyTemplate}
@@ -69,9 +102,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
 
           {/* Basic Info */}
           <div className="space-y-4">
-              <h4 className="font-semibold border-b pb-2">基础信息 (用于 AI 生成及邮件填充)</h4>
+              <h4 className="font-semibold border-b pb-2">基础信息</h4>
               <div className="grid grid-cols-2 gap-4">
-                  {/* ... 保持原有字段 ... */}
                   <div>
                     <label className="text-xs text-gray-500">姓名</label>
                     <input name="name" value={formData.name} onChange={handleChange} className="w-full p-2 border rounded"/>
@@ -79,6 +111,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
                   <div>
                     <label className="text-xs text-gray-500">本科院校</label>
                     <input name="undergrad" value={formData.undergrad} onChange={handleChange} className="w-full p-2 border rounded"/>
+                  </div>
+                  {/* [新增] 本科专业 */}
+                  <div>
+                    <label className="text-xs text-gray-500 font-bold text-indigo-600">本科专业</label>
+                    <input name="undergradMajor" value={formData.undergradMajor} onChange={handleChange} className="w-full p-2 border border-indigo-200 rounded"/>
                   </div>
                   <div>
                     <label className="text-xs text-gray-500">硕士院校</label>
