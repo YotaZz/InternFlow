@@ -1,4 +1,4 @@
-import { GoogleGenAI, SchemaType } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { generateSystemPrompt } from "../constants";
 import { ParsingResult, UserProfile } from "../types";
 
@@ -12,17 +12,18 @@ export const parseRecruitmentText = async (
 
   const ai = new GoogleGenAI({ apiKey });
 
+  // 使用 Type 而不是 SchemaType
   const responseSchema = {
-    type: SchemaType.ARRAY,
+    type: Type.ARRAY,
     items: {
-      type: SchemaType.OBJECT,
+      type: Type.OBJECT,
       properties: {
-        company: { type: SchemaType.STRING, description: "公司名称" },
-        department: { type: SchemaType.STRING, description: "部门名称" },
-        position: { type: SchemaType.STRING, description: "岗位名称" },
-        email: { type: SchemaType.STRING, description: "投递邮箱" },
+        company: { type: Type.STRING, description: "公司名称" },
+        department: { type: Type.STRING, description: "部门名称" },
+        position: { type: Type.STRING, description: "岗位名称" },
+        email: { type: Type.STRING, description: "投递邮箱" },
         profile_selected: { 
-            type: SchemaType.STRING, 
+            type: Type.STRING, 
             enum: ["XMU_Only", "NUS_2027"], 
             description: "身份策略" 
         },
@@ -51,7 +52,7 @@ export const parseRecruitmentText = async (
 
     // --- 本地 TS 逻辑：生成三个关键片段 ---
     return rawResults.map((raw: any) => {
-        const { company, department, position, profile_selected } = raw;
+        const { company, department, position } = raw;
 
         // 1. 生成 Opening Line
         const opening_line = `${company}${position}招聘负责人老师：`;

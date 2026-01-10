@@ -35,7 +35,6 @@ const App: React.FC = () => {
       const results: ParsingResult[] = await parseRecruitmentText(apiKey, inputText, userProfile);
       
       const newJobs: JobApplication[] = results.map(res => {
-        // 计算邮件标题
         const schoolStr = res.profile_selected === 'NUS_2027' 
             ? `${userProfile.undergrad}/${userProfile.master}` 
             : userProfile.undergrad;
@@ -51,11 +50,11 @@ const App: React.FC = () => {
             email_subject: subject,
             filename: `${subject}.pdf`,
             
-            // --- 核心修改：映射三个片段 ---
+            // --- 核心映射 ---
             opening_line: res.opening_line,
             job_source_line: res.job_source_line,
             praise_line: res.praise_line,
-            // --------------------------
+            // ---------------
 
             raw_requirement: inputText,
             selected: true,
@@ -146,7 +145,6 @@ const App: React.FC = () => {
     addLog(`Initializing EmailJS send to ${job.email}...`);
 
     try {
-        // --- 核心修改：发送给 EmailJS 的参数 ---
         const templateParams = {
             // 变量注入
             opening_line: job.opening_line,
@@ -160,7 +158,6 @@ const App: React.FC = () => {
             from_name: userProfile.name,
             reply_to: userProfile.senderEmail
         };
-        // ------------------------------------
 
         const response = await emailjs.send(
             userProfile.emailjsServiceId,

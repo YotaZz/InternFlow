@@ -1,8 +1,8 @@
 import { UserProfile } from './types';
 
 export const AVAILABLE_MODELS = [
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (推荐)' },
-  { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (强推理)' },
+  { value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash (推荐)' },
+  { value: 'models/gemini-3-pro-preview', label: 'Gemini 3.0 Pro (强推理)' },
 ];
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
@@ -11,11 +11,11 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   master: "NUS",
   masterMajor: "数据科学与机器学习",
   masterYear: "2027",
-  currentGrade: "研一",
+  currentGrade: "研0",
   availability: "6个月",
   frequency: "每周5天",
   arrival: "立即到岗",
-  aiModel: "gemini-2.0-flash",
+  aiModel: "gemini-3-flash-preview",
   
   // EmailJS Defaults
   emailjsServiceId: "",

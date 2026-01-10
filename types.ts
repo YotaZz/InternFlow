@@ -13,11 +13,11 @@ export interface JobApplication {
   email_subject: string;
   filename: string;
   
-  // --- 修改点：拆分为三个关键片段，不再存储 email_body ---
-  opening_line: string;     // 片段1：开头称呼
-  job_source_line: string;  // 片段2：来源句
-  praise_line: string;      // 片段3：敬佩句
-  // ---------------------------------------------------
+  // --- 关键修改：只有片段，没有 body ---
+  opening_line: string;
+  job_source_line: string;
+  praise_line: string;
+  // ---------------------------------
 
   raw_requirement?: string;
   selected: boolean;
@@ -43,7 +43,7 @@ export interface UserProfile {
   emailjsPublicKey: string; 
   senderEmail: string; 
   
-  // 设为可选，兼容旧代码
+  // 兼容旧字段
   bodyTemplate?: string; 
 }
 
@@ -54,7 +54,7 @@ export interface ParsingResult {
   email: string;
   profile_selected: string;
   
-  // 解析结果也对应拆分
+  // 解析结果也只包含片段
   opening_line: string;
   job_source_line: string;
   praise_line: string;
