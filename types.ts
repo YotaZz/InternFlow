@@ -13,10 +13,11 @@ export interface JobApplication {
   email_subject: string;
   filename: string;
   
-  // 修改处：不再存储完整的 email_body，而是存储三个片段
-  opening_line: string;     // 开头称呼
-  job_source_line: string;  // 来源句
-  praise_line: string;      // 敬佩句
+  // --- 修改点：拆分为三个关键片段，不再存储 email_body ---
+  opening_line: string;     // 片段1：开头称呼
+  job_source_line: string;  // 片段2：来源句
+  praise_line: string;      // 片段3：敬佩句
+  // ---------------------------------------------------
 
   raw_requirement?: string;
   selected: boolean;
@@ -41,7 +42,8 @@ export interface UserProfile {
   emailjsTemplateId: string;
   emailjsPublicKey: string; 
   senderEmail: string; 
-  // bodyTemplate 字段其实废弃了，因为模板在EmailJS端，但保留接口定义防报错
+  
+  // 设为可选，兼容旧代码
   bodyTemplate?: string; 
 }
 
@@ -51,10 +53,8 @@ export interface ParsingResult {
   position: string;
   email: string;
   profile_selected: string;
-  email_subject: string;
-  filename: string;
   
-  // 修改处：解析结果也对应三个片段
+  // 解析结果也对应拆分
   opening_line: string;
   job_source_line: string;
   praise_line: string;

@@ -12,7 +12,6 @@ export const parseRecruitmentText = async (
 
   const ai = new GoogleGenAI({ apiKey });
 
-  // 简化 Schema，只提取实体
   const responseSchema = {
     type: SchemaType.ARRAY,
     items: {
@@ -50,36 +49,29 @@ export const parseRecruitmentText = async (
     
     const rawResults = JSON.parse(text);
 
-    // --- 在本地用 TS 生成三个关键句子 ---
+    // --- 本地 TS 逻辑：生成三个关键片段 ---
     return rawResults.map((raw: any) => {
         const { company, department, position, profile_selected } = raw;
 
-        // 1. 生成标题
-        const schoolStr = profile_selected === 'NUS_2027' 
-            ? `${userProfile.undergrad}/${userProfile.master}` 
-            : userProfile.undergrad;
-        const subject = `应聘${position} - ${userProfile.name} - ${schoolStr} - ${company}`;
-
-        // 2. 生成 Opening Line
+        // 1. 生成 Opening Line
         const opening_line = `${company}${position}招聘负责人老师：`;
 
-        // 3. 生成 Job Source Line
-        // 逻辑：有部门填部门，没部门留空，避免 undefined
+        // 2. 生成 Job Source Line
+        // 逻辑：有部门填部门，没部门留空
         const deptPart = department ? department : "";
         const job_source_line = `我了解到您发布的${deptPart}${position}的招聘JD`;
 
-        // 4. 生成 Praise Line
-        // 逻辑：优先夸部门，没部门夸岗位/公司
+        // 3. 生成 Praise Line
+        // 逻辑：优先夸部门，没部门夸岗位
         const focusArea = department || position; 
         const praise_line = `我对${company}在${focusArea}领域的深耕非常敬佩`;
 
         return {
             ...raw,
-            email_subject: subject,
-            filename: `${subject}.pdf`,
-            opening_line,      // 注入变量1
-            job_source_line,   // 注入变量2
-            praise_line        // 注入变量3
+            // 注意：这里我们不再生成 email_body，只返回片段
+            opening_line,
+            job_source_line,
+            praise_line
         };
     });
 
