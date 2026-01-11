@@ -19,10 +19,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="bg-indigo-600 px-6 py-4 flex justify-between items-center shrink-0">
           <h3 className="text-lg font-bold text-white">系统设置</h3>
-          <button onClick={onClose} className="text-indigo-100 hover:text-white">✕</button>
+          <button onClick={onClose} className="text-indigo-100 hover:text-white text-2xl leading-none">&times;</button>
         </div>
 
         <div className="p-6 space-y-6 overflow-y-auto">
@@ -36,7 +36,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
              </select>
           </div>
 
-          {/* [新增] 岗位筛选配置 */}
+          {/* 岗位筛选配置 */}
           <div className="bg-orange-50 p-4 rounded border border-orange-200">
              <label className="block text-sm font-bold text-orange-900 mb-2">智能岗位筛选</label>
              <p className="text-xs text-orange-700 mb-2">
@@ -54,9 +54,23 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
           {/* Email Config */}
           <div className="bg-green-50 p-4 rounded border border-green-200">
              <label className="block text-sm font-bold text-green-900 mb-2">邮件发送配置 (SMTP)</label>
+             
+             {/* [新增] 发件人昵称配置 */}
+             <div className="mb-4">
+                 <label className="block text-xs font-bold text-gray-500 mb-1">发件人昵称 (Sender Name)</label>
+                 <input 
+                    name="senderName" 
+                    value={formData.senderName || ''} 
+                    onChange={handleChange} 
+                    placeholder="HR 看到的“发件人”名字，建议填写全名" 
+                    className="w-full p-2 border rounded text-sm bg-white"
+                 />
+                 <p className="text-[10px] text-gray-400 mt-1">若不填则默认使用基础信息中的“姓名”。</p>
+             </div>
+
              <div className="grid grid-cols-2 gap-4 mb-4">
                  <div>
-                    <label className="text-xs text-gray-500 font-bold">发件邮箱 (SMTP User)</label>
+                    <label className="text-xs text-gray-500 font-bold">SMTP 账号</label>
                     <input 
                       name="smtpUser" 
                       value={formData.smtpUser || ''} 
@@ -66,7 +80,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
                     />
                  </div>
                  <div>
-                    <label className="text-xs text-gray-500 font-bold">授权码 (SMTP Pass)</label>
+                    <label className="text-xs text-gray-500 font-bold">SMTP 授权码</label>
                     <input 
                       type="password"
                       name="smtpPass" 
@@ -102,7 +116,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
 
           {/* Basic Info */}
           <div className="space-y-4">
-              <h4 className="font-semibold border-b pb-2">基础信息</h4>
+              <h4 className="font-semibold border-b pb-2">基础信息 (用于 AI 生成)</h4>
               <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs text-gray-500">姓名</label>
@@ -112,7 +126,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ currentProfile, onS
                     <label className="text-xs text-gray-500">本科院校</label>
                     <input name="undergrad" value={formData.undergrad} onChange={handleChange} className="w-full p-2 border rounded"/>
                   </div>
-                  {/* [新增] 本科专业 */}
                   <div>
                     <label className="text-xs text-gray-500 font-bold text-indigo-600">本科专业</label>
                     <input name="undergradMajor" value={formData.undergradMajor} onChange={handleChange} className="w-full p-2 border border-indigo-200 rounded"/>

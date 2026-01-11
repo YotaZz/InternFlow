@@ -18,8 +18,9 @@ export const fetchJobs = async (): Promise<JobApplication[]> => {
   const { data, error } = await supabase
     .from('internflow_entries')
     .select('*')
-    .eq('user_id', user.id) // 增加：只看自己的
-    .order('created_at', { ascending: false });
+    .eq('user_id', user.id)
+    // [修改] 改为按 seq_id 降序排序
+    .order('seq_id', { ascending: false });
 
   if (error) {
       console.error("Error fetching jobs:", error);
@@ -35,11 +36,11 @@ export const fetchJobs = async (): Promise<JobApplication[]> => {
 };
 
 // 3. 解析后保存
-export const saveParsedJobs = async (results: ParsingResult[], rawText: string) => {
-  const user = await getCurrentUser(); // 获取真实用户
+export const saveParsedJobs = async (results: ParsingResult[], source: string) => {
+  const user = await getCurrentUser();
   
   const rows = results.map(res => ({
-    user_id: user.id, // 使用真实 ID
+    user_id: user.id,
     company: res.company,
     department: res.department,
     position: res.position,
@@ -53,8 +54,8 @@ export const saveParsedJobs = async (results: ParsingResult[], rawText: string) 
     review_reason: res.review_reason,
     pass_filter: res.pass_filter,
     filter_reason: res.filter_reason,
-    raw_requirement: rawText,
-    status: res.pass_filter ? 'pending' : 'filtered'
+    status: res.pass_filter ? 'pending' : 'filtered',
+    source: source,
   }));
 
   const { data, error } = await supabase
@@ -66,7 +67,7 @@ export const saveParsedJobs = async (results: ParsingResult[], rawText: string) 
   return data;
 };
 
-// 4. 更新状态
+// 4. 更新状态 (仅更新 status)
 export const updateJobStatus = async (id: string, status: string) => {
   const { error } = await supabase
     .from('internflow_entries')
@@ -75,46 +76,60 @@ export const updateJobStatus = async (id: string, status: string) => {
   if (error) throw error;
 };
 
-// 5. 【核心】同步到 JobFlow 的 jobs 表
+// 5. 通用更新 (用于编辑详情，同步到数据库)
+export const updateJob = async (id: string, updates: Partial<JobApplication>) => {
+  // 剔除 UI 专用字段，防止写入数据库报错
+  // seq_id 是生成的，通常也不应该被更新，这里一并剔除比较安全，虽然传了也不一定会错
+  const { selected, logs, filename, seq_id, created_at, ...dbUpdates } = updates as any;
+  
+  const { error } = await supabase
+    .from('internflow_entries')
+    .update(dbUpdates)
+    .eq('id', id);
+    
+  if (error) throw error;
+};
+
+// 6. 删除记录
+export const deleteJobById = async (id: string) => {
+  const { error } = await supabase
+    .from('internflow_entries')
+    .delete()
+    .eq('id', id);
+    
+  if (error) throw error;
+};
+
+// 7. 同步到 JobFlow 的 jobs 表
 export const syncToInterviewManager = async (job: JobApplication) => {
   const user = await getCurrentUser();
   
-  // 逻辑：Position = 部门 + 岗位 (如果有部门的话)
   const finalPosition = job.department 
     ? `${job.department}-${job.position}` 
     : job.position;
 
-  // 默认步骤配置
   const defaultSteps = ["已投递", "初筛", "笔试", "一面", "二面", "HR面", "OC"];
-  
-  // 初始化时间记录
   const now = Date.now();
-  const initialStepDates = { "0": now }; // 0 代表 "已投递"
+  const initialStepDates = { "0": now };
 
   const { error: insertError } = await supabase
     .from('jobs')
     .insert({
-      user_id: user.id,          // 绑定账号 ID
-      email: user.email,         // 绑定账号邮箱 (JobFlow 逻辑)
-      
+      user_id: user.id,
+      email: user.email,
       company: job.company,
-      position: finalPosition,   // 【自定义拼接逻辑】
-      job_type: 'internship',    // 【固定为实习】
-      
+      position: finalPosition,
+      job_type: 'internship',
       steps: defaultSteps,
-      current_step_index: 0,     // 初始状态：已投递
+      current_step_index: 0,
       current_step_status: 'in-progress',
       step_dates: initialStepDates,
-      
-      base: '',                  // 可选，留空
-      tags: ['InternFlow'],      // 打个标，方便在 JobFlow 里筛选
-      
+      base: '',
+      tags: ['InternFlow', job.source],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
 
   if (insertError) throw insertError;
-
-  // 同步成功后，更新当前表状态
   await updateJobStatus(job.id, 'interview');
 };

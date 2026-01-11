@@ -1,10 +1,14 @@
 // constants.ts
 import { UserProfile } from './types';
 
+// [修改] 仅保留 Gemini 3 系列模型
 export const AVAILABLE_MODELS = [
   { value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash' },
-  { value: 'models/gemini-3-pro-preview', label: 'Gemini 3.0 Pro' },
+  { value: 'gemini-3-pro-preview', label: 'Gemini 3.0 Pro' },
 ];
+
+// [修改] 更新来源选项
+export const SOURCE_OPTIONS = ["免费表", "付费表", "公众号", "牛客网"];
 
 const DEFAULT_MAIL_TEMPLATE = `
 <p>{{opening_line}}</p>
@@ -19,6 +23,7 @@ const DEFAULT_MAIL_TEMPLATE = `
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
   name: "邹宇涛",
+  senderName: "邹宇涛", 
   undergrad: "厦门大学",
   undergradMajor: "电子商务",
   
@@ -29,7 +34,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   availability: "6个月",
   frequency: "每周5天",
   arrival: "立即到岗",
-  aiModel: "gemini-3-flash-preview",
+  aiModel: "gemini-3-flash-preview", // 确保默认值也改回
   senderEmail: import.meta.env.VITE_SENDER_EMAIL || "", 
   smtpUser: "", 
   smtpPass: "",
