@@ -4,5 +4,10 @@
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }
-  ]
+  ],
+  "functions": {
+    "api/send_email.js": {
+      "includeFiles": "resume.pdf"
+    }
+  }
 }
