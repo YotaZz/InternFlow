@@ -1,11 +1,10 @@
 // src/services/geminiService.ts
-// [修改] 切换到 @google/genai SDK
-import { GoogleGenAI, SchemaType } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import { generateSystemPrompt } from "../constants";
 import { ParsingResult, UserProfile } from "../types";
 
 // 辅助函数：从流式文本中提取 JSON 对象
-// 专门处理像 [ {..}, {..} ] 这样的流式数组结构
+// 保持不变，用于处理流式返回的不完整 JSON 字符串
 const extractJSONObjects = (text: string): ParsingResult[] => {
   const results: ParsingResult[] = [];
   let depth = 0;
@@ -13,7 +12,6 @@ const extractJSONObjects = (text: string): ParsingResult[] => {
   let inString = false;
   let isEscaped = false;
 
-  // 简单的状态机，用于识别顶层的大括号 {}
   for (let i = 0; i < text.length; i++) {
     const char = text[i];
     
@@ -40,16 +38,15 @@ const extractJSONObjects = (text: string): ParsingResult[] => {
     } else if (char === '}') {
       depth--;
       if (depth === 0 && startIndex !== -1) {
-        // 找到一个潜在的完整对象
         const jsonStr = text.substring(startIndex, i + 1);
         try {
           const obj = JSON.parse(jsonStr);
-          // 简单验证关键字段是否存在
+          // 简单的校验，确保包含关键字段
           if (obj.company && obj.position) {
              results.push(obj);
           }
         } catch (e) {
-          // 解析失败说明还不是完整的 JSON，忽略
+          // 忽略解析失败的片段
         }
         startIndex = -1;
       }
@@ -58,31 +55,31 @@ const extractJSONObjects = (text: string): ParsingResult[] => {
   return results;
 };
 
-// 定义输出的 JSON Schema，Gemini 3 支持 Structured Outputs
+// [修复 1] 定义 Schema: 使用原生 Object/String，移除 SchemaType 枚举
 const PARSING_RESULT_SCHEMA = {
-  type: SchemaType.ARRAY,
+  type: "ARRAY",
   items: {
-    type: SchemaType.OBJECT,
+    type: "OBJECT",
     properties: {
-      company: { type: SchemaType.STRING, description: "公司简称" },
-      department: { type: SchemaType.STRING, description: "部门简称" },
-      position: { type: SchemaType.STRING, description: "岗位名称" },
-      email: { type: SchemaType.STRING, description: "投递邮箱" },
-      profile_selected: { type: SchemaType.STRING, enum: ["Base", "Master"], description: "Base(本科) 或 Master(本硕)" },
-      email_subject: { type: SchemaType.STRING },
-      opening_line: { type: SchemaType.STRING },
-      job_source_line: { type: SchemaType.STRING },
-      praise_line: { type: SchemaType.STRING },
-      needs_review: { type: SchemaType.BOOLEAN },
-      review_reason: { type: SchemaType.STRING },
-      pass_filter: { type: SchemaType.BOOLEAN },
-      filter_reason: { type: SchemaType.STRING },
+      company: { type: "STRING", description: "公司简称" },
+      department: { type: "STRING", description: "部门简称" },
+      position: { type: "STRING", description: "岗位名称" },
+      email: { type: "STRING", description: "投递邮箱" },
+      // enum 依然是支持的，只要是字符串数组
+      profile_selected: { type: "STRING", enum: ["Base", "Master"], description: "Base(本科) 或 Master(本硕)" },
+      email_subject: { type: "STRING" },
+      opening_line: { type: "STRING" },
+      job_source_line: { type: "STRING" },
+      praise_line: { type: "STRING" },
+      needs_review: { type: "BOOLEAN" },
+      review_reason: { type: "STRING" },
+      pass_filter: { type: "BOOLEAN" },
+      filter_reason: { type: "STRING" },
     },
     required: ["company", "position", "email", "profile_selected", "email_subject", "needs_review", "pass_filter"],
   },
 };
 
-// 流式解析函数
 export const parseRecruitmentTextStream = async (
   apiKey: string,
   inputText: string,
@@ -93,13 +90,13 @@ export const parseRecruitmentTextStream = async (
   if (!apiKey) throw new Error("API Key is missing");
   if (!inputText.trim()) return [];
 
-  // [修改] 使用新的 SDK 初始化
+  // 初始化客户端
   const ai = new GoogleGenAI({ apiKey });
   
   const systemInstruction = generateSystemPrompt(userProfile);
   
   try {
-    // [修改] 使用新的 generateContentStream 方法
+    // [修复 2] 调用 generateContentStream
     const response = await ai.models.generateContentStream({
         model: userProfile.aiModel,
         contents: [
@@ -107,10 +104,8 @@ export const parseRecruitmentTextStream = async (
         ],
         config: {
             responseMimeType: "application/json",
+            // [修复 3] 参数名为 responseJsonSchema (JS SDK)
             responseJsonSchema: PARSING_RESULT_SCHEMA,
-            // [可选] 根据文档建议，Temperature 设为 1.0 (默认)，或者稍微降低一点以保持 JSON 稳定性
-            // 文档建议 Gemini 3 保持默认 1.0，但为了 JSON 格式稳定，0.5 也是常见的安全值
-            // 此处保持之前的 0.5 逻辑，或者移除让其默认。
             temperature: 0.5, 
         }
     });
@@ -118,17 +113,19 @@ export const parseRecruitmentTextStream = async (
     let fullText = "";
     let processedObjectsCount = 0;
 
-    // [修改] 新 SDK 的流处理方式
-    for await (const chunk of response.stream) {
-      const chunkText = chunk.text();
+    // [修复 4] 遍历 response 本身，而不是 response.stream
+    for await (const chunk of response) {
+      // [修复 5] 直接访问 chunk.text 属性，而不是方法 chunk.text()
+      const chunkText = chunk.text;
+      
       if (!chunkText) continue;
       
       fullText += chunkText;
       
-      // 更新思考框 (展示原始输出)
+      // 更新思考过程或原始内容
       onThinkUpdate(fullText);
 
-      // 提取对象
+      // 实时提取 JSON 对象
       const allObjects = extractJSONObjects(fullText);
       if (allObjects.length > processedObjectsCount) {
         const newObjects = allObjects.slice(processedObjectsCount);
@@ -137,13 +134,13 @@ export const parseRecruitmentTextStream = async (
       }
     }
 
-    // 最终尝试解析完整文本，以防遗漏
+    // 结束后再次尝试解析，防止遗漏
     const finalObjects = extractJSONObjects(fullText);
     return finalObjects;
 
   } catch (error) {
     console.error("Gemini Streaming Error:", error);
-    // 错误恢复：尝试返回已解析部分
+    // 错误处理：尝试返回已解析的数据
     const salvaged = extractJSONObjects(""); 
     if (salvaged.length > 0) return salvaged;
     throw error;
