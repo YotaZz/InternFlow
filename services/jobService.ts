@@ -35,28 +35,50 @@ export const fetchJobs = async (): Promise<JobApplication[]> => {
   }));
 };
 
+
 // 3. 解析后保存
 export const saveParsedJobs = async (results: ParsingResult[], source: string) => {
   const user = await getCurrentUser();
   
-  const rows = results.map(res => ({
-    user_id: user.id,
-    company: res.company,
-    department: res.department,
-    position: res.position,
-    email: res.email,
-    profile_selected: res.profile_selected,
-    email_subject: res.email_subject,
-    opening_line: res.opening_line,
-    job_source_line: res.job_source_line,
-    praise_line: res.praise_line,
-    needs_review: res.needs_review,
-    review_reason: res.review_reason,
-    pass_filter: res.pass_filter,
-    filter_reason: res.filter_reason,
-    status: res.pass_filter ? 'pending' : 'filtered',
-    source: source,
-  }));
+  // [新增] 步骤 A: 获取当前用户最大的 seq_id
+  const { data: maxData, error: maxError } = await supabase
+    .from('internflow_entries')
+    .select('seq_id')
+    .eq('user_id', user.id)
+    .order('seq_id', { ascending: false })
+    .limit(1);
+
+  if (maxError) {
+      console.error("Error fetching max seq_id:", maxError);
+      throw maxError;
+  }
+
+  // 如果没有数据，从 0 开始；否则取最大值
+  let currentSeqBase = (maxData && maxData.length > 0) ? (maxData[0].seq_id || 0) : 0;
+
+  // [修改] 步骤 B: 手动分配连续的 seq_id
+  const rows = results.map(res => {
+    currentSeqBase += 1; // 递增序号
+    return {
+        user_id: user.id,
+        seq_id: currentSeqBase, // 显式写入序号
+        company: res.company,
+        department: res.department,
+        position: res.position,
+        email: res.email,
+        profile_selected: res.profile_selected,
+        email_subject: res.email_subject,
+        opening_line: res.opening_line,
+        job_source_line: res.job_source_line,
+        praise_line: res.praise_line,
+        needs_review: res.needs_review,
+        review_reason: res.review_reason,
+        pass_filter: res.pass_filter,
+        filter_reason: res.filter_reason,
+        status: res.pass_filter ? 'pending' : 'filtered',
+        source: source,
+    };
+  });
 
   const { data, error } = await supabase
     .from('internflow_entries')

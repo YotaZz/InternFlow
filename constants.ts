@@ -39,7 +39,7 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   smtpUser: "", 
   smtpPass: "",
   bodyTemplate: DEFAULT_MAIL_TEMPLATE,
-  filterCriteria: "不要技术岗、HR岗、审计岗、市场岗、公关岗"
+  filterCriteria: "不要技术岗、HR岗、审计岗、市场岗、公关岗、新媒体岗、券商、非战略类咨询"
 };
 
 export const generateSystemPrompt = (profile: UserProfile): string => `

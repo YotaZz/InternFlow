@@ -44,6 +44,7 @@ const DuplicateBadge = () => (
 );
 
 
+
 const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +56,7 @@ const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
 
     return (
         <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/30 overflow-hidden shadow-sm transition-all duration-300">
-            {/* 头部状态栏：更紧凑 */}
+            {/* 头部状态栏 */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-100/40 border-b border-indigo-200/30">
                 <div className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
@@ -66,11 +67,14 @@ const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
                 </span>
             </div>
             
-            {/* 内容区域：高度减小 (h-48 -> h-28)，字体缩小 */}
+            {/* 内容区域：
+                1. 移除光标 span
+                2. 高度改为 min-h-[8rem] (约128px) 到 max-h-[20rem] (约320px) 的自适应范围 
+            */}
             <div 
                 ref={scrollRef}
                 className="
-                    h-28 
+                    min-h-[8rem] max-h-[20rem]
                     overflow-y-auto 
                     p-3 
                     font-mono text-[10px] leading-relaxed 
@@ -86,7 +90,6 @@ const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
             >
                 <div className="whitespace-pre-wrap break-words">
                    {text}
-                   <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-indigo-500 animate-pulse rounded-[1px]"></span>
                 </div>
             </div>
         </div>
