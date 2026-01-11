@@ -8,7 +8,7 @@ export const AVAILABLE_MODELS = [
 ];
 
 // [修改] 更新来源选项
-export const SOURCE_OPTIONS = ["免费表", "付费表", "公众号", "牛客网"];
+export const SOURCE_OPTIONS = ["免费表", "付费表", "公众号", "小红书"];
 
 const DEFAULT_MAIL_TEMPLATE = `
 <p>{{opening_line}}</p>
