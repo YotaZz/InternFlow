@@ -1,10 +1,10 @@
 // constants.ts
 import { UserProfile } from './types';
 
-// [修改] 仅保留 Gemini 3 系列模型
 export const AVAILABLE_MODELS = [
-  { value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash' },
-  { value: 'gemini-3-pro-preview', label: 'Gemini 3.0 Pro' },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (极速/推荐)' },
+  { value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash (强推理/稍慢)' },
+  { value: 'gemini-3-pro-preview', label: 'Gemini 3.0 Pro (最强/最慢)' },
 ];
 
 // [修改] 更新来源选项

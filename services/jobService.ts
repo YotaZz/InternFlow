@@ -100,7 +100,17 @@ export const deleteJobById = async (id: string) => {
   if (error) throw error;
 };
 
-// 7. 同步到 JobFlow 的 jobs 表
+// [新增] 7. 批量删除记录
+export const deleteJobsByIds = async (ids: string[]) => {
+  const { error } = await supabase
+    .from('internflow_entries')
+    .delete()
+    .in('id', ids);
+    
+  if (error) throw error;
+};
+
+// 8. 同步到 JobFlow 的 jobs 表
 export const syncToInterviewManager = async (job: JobApplication) => {
   const user = await getCurrentUser();
   

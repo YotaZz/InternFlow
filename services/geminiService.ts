@@ -55,7 +55,7 @@ const extractJSONObjects = (text: string): ParsingResult[] => {
   return results;
 };
 
-// [修复 1] 定义 Schema: 使用原生 Object/String，移除 SchemaType 枚举
+
 const PARSING_RESULT_SCHEMA = {
   type: "ARRAY",
   items: {
@@ -65,7 +65,6 @@ const PARSING_RESULT_SCHEMA = {
       department: { type: "STRING", description: "部门简称" },
       position: { type: "STRING", description: "岗位名称" },
       email: { type: "STRING", description: "投递邮箱" },
-      // enum 依然是支持的，只要是字符串数组
       profile_selected: { type: "STRING", enum: ["Base", "Master"], description: "Base(本科) 或 Master(本硕)" },
       email_subject: { type: "STRING" },
       opening_line: { type: "STRING" },
@@ -90,57 +89,74 @@ export const parseRecruitmentTextStream = async (
   if (!apiKey) throw new Error("API Key is missing");
   if (!inputText.trim()) return [];
 
-  // 初始化客户端
   const ai = new GoogleGenAI({ apiKey });
-  
   const systemInstruction = generateSystemPrompt(userProfile);
   
+  // [关键修改] 只有 Gemini 3 系列模型才开启 Thinking
+  // Gemini 2.5 Flash 不支持 includeThoughts，强制开启会导致错误或无意义等待
+  const isThinkingModel = userProfile.aiModel.includes("gemini-3");
+
+  const generationConfig: any = {
+      responseMimeType: "application/json",
+      responseJsonSchema: PARSING_RESULT_SCHEMA,
+      temperature: 0.5,
+  };
+
+  if (isThinkingModel) {
+      generationConfig.thinkingConfig = {
+          includeThoughts: true
+      };
+  }
+  
   try {
-    // [修复 2] 调用 generateContentStream
     const response = await ai.models.generateContentStream({
         model: userProfile.aiModel,
         contents: [
             { role: "user", parts: [{ text: systemInstruction + "\n\n待解析文本:\n" + inputText }] }
         ],
-        config: {
-            responseMimeType: "application/json",
-            // [修复 3] 参数名为 responseJsonSchema (JS SDK)
-            responseJsonSchema: PARSING_RESULT_SCHEMA,
-            temperature: 0.5, 
-        }
+        config: generationConfig
     });
 
     let fullText = "";
     let processedObjectsCount = 0;
 
-    // [修复 4] 遍历 response 本身，而不是 response.stream
     for await (const chunk of response) {
-      // [修复 5] 直接访问 chunk.text 属性，而不是方法 chunk.text()
-      const chunkText = chunk.text;
-      
-      if (!chunkText) continue;
-      
-      fullText += chunkText;
-      
-      // 更新思考过程或原始内容
-      onThinkUpdate(fullText);
+      // 遍历 parts 以兼容不同的 chunk 结构
+      const parts = chunk.candidates?.[0]?.content?.parts || [];
 
-      // 实时提取 JSON 对象
-      const allObjects = extractJSONObjects(fullText);
-      if (allObjects.length > processedObjectsCount) {
-        const newObjects = allObjects.slice(processedObjectsCount);
-        newObjects.forEach(obj => onObjectParsed(obj));
-        processedObjectsCount = allObjects.length;
+      for (const part of parts) {
+          // 处理思考内容 (仅当模型支持且返回了 thought 时)
+          if (part.thought) {
+              if (part.text) {
+                  // 这里只更新 UI，不参与 JSON 解析
+                  onThinkUpdate(part.text); 
+              }
+          } 
+          // 处理普通文本内容 (即最终的 JSON)
+          else if (part.text) {
+              fullText += part.text;
+              
+              // 如果不是思考模型，思考框就不显示内容了，或者你可以显示 "解析中..."
+              // 为了用户体验，非思考模型时，我们也可以把进度打到思考框里（可选）
+              if (!isThinkingModel) {
+                  onThinkUpdate("⚡️ 极速解析中... (Gemini 2.5)");
+              }
+
+              const allObjects = extractJSONObjects(fullText);
+              if (allObjects.length > processedObjectsCount) {
+                const newObjects = allObjects.slice(processedObjectsCount);
+                newObjects.forEach(obj => onObjectParsed(obj));
+                processedObjectsCount = allObjects.length;
+              }
+          }
       }
     }
 
-    // 结束后再次尝试解析，防止遗漏
     const finalObjects = extractJSONObjects(fullText);
     return finalObjects;
 
   } catch (error) {
     console.error("Gemini Streaming Error:", error);
-    // 错误处理：尝试返回已解析的数据
     const salvaged = extractJSONObjects(""); 
     if (salvaged.length > 0) return salvaged;
     throw error;

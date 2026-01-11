@@ -1,3 +1,4 @@
+// App.tsx
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabaseClient';
@@ -10,9 +11,16 @@ import UserProfileModal from './components/UserProfileModal';
 import { LoginModal } from './components/LoginModal';
 
 // 服务导入
-// [修改] 引入新的流式方法
 import { parseRecruitmentTextStream } from './services/geminiService';
-import { fetchJobs, saveParsedJobs, updateJobStatus, syncToInterviewManager, updateJob, deleteJobById } from './services/jobService';
+import { 
+    fetchJobs, 
+    saveParsedJobs, 
+    updateJobStatus, 
+    syncToInterviewManager, 
+    updateJob, 
+    deleteJobById,
+    deleteJobsByIds // 确保在 jobService 中导出了此方法
+} from './services/jobService';
 
 // 类型与常量
 import { JobApplication, ParsingResult, UserProfile } from './types';
@@ -35,11 +43,10 @@ const DuplicateBadge = () => (
     </div>
 );
 
-// [新增] AI 思考框组件
+
 const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // 自动滚动到底部
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -47,14 +54,41 @@ const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
     }, [text]);
 
     return (
-        <div 
-            ref={scrollRef}
-            className="mt-3 w-full h-[48px] bg-gray-900 rounded-lg border border-gray-700 p-2 overflow-y-auto font-mono text-[10px] leading-tight text-green-400 shadow-inner scrollbar-none"
-        >
-            <div className="flex items-center gap-2 mb-1 text-gray-500 sticky top-0 bg-gray-900/90 backdrop-blur pb-1 border-b border-gray-800">
-                <span className="animate-pulse">●</span> AI Thinking...
+        <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/30 overflow-hidden shadow-sm transition-all duration-300">
+            {/* 头部状态栏：更紧凑 */}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-100/40 border-b border-indigo-200/30">
+                <div className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></span>
+                </div>
+                <span className="text-[10px] font-bold text-indigo-700 tracking-wide flex-1">
+                    AI 正在思考...
+                </span>
             </div>
-            <pre className="whitespace-pre-wrap break-all">{text}</pre>
+            
+            {/* 内容区域：高度减小 (h-48 -> h-28)，字体缩小 */}
+            <div 
+                ref={scrollRef}
+                className="
+                    h-28 
+                    overflow-y-auto 
+                    p-3 
+                    font-mono text-[10px] leading-relaxed 
+                    text-slate-600 
+                    bg-white/40
+                    backdrop-blur-sm
+                    [&::-webkit-scrollbar]:w-1
+                    [&::-webkit-scrollbar-track]:bg-transparent
+                    [&::-webkit-scrollbar-thumb]:bg-indigo-200/50
+                    [&::-webkit-scrollbar-thumb]:rounded-full
+                    hover:[&::-webkit-scrollbar-thumb]:bg-indigo-300
+                "
+            >
+                <div className="whitespace-pre-wrap break-words">
+                   {text}
+                   <span className="inline-block w-1 h-3 ml-0.5 align-middle bg-indigo-500 animate-pulse rounded-[1px]"></span>
+                </div>
+            </div>
         </div>
     );
 };
@@ -72,7 +106,6 @@ const App: React.FC = () => {
   const [isCustomSource, setIsCustomSource] = useState(false);
 
   const [isParsing, setIsParsing] = useState<boolean>(false);
-  // [新增] 思考过程文本
   const [thinkingText, setThinkingText] = useState<string>('');
   
   const [jobs, setJobs] = useState<JobApplication[]>([]);
@@ -171,6 +204,33 @@ const App: React.FC = () => {
     }
   };
 
+  // [新增] 批量删除功能
+  const handleBatchDelete = async () => {
+    const selectedIds = filteredJobsBySearch
+        .filter(j => j.status === activeTab && j.selected)
+        .map(j => j.id);
+
+    if (selectedIds.length === 0) return;
+
+    if (!confirm(`⚠️ 确认删除\n\n您选中了 ${selectedIds.length} 条记录，删除后无法恢复。\n确定要继续吗？`)) {
+        return;
+    }
+
+    const previousJobs = [...jobs];
+    
+    // 乐观更新
+    setJobs(prev => prev.filter(j => !selectedIds.includes(j.id)));
+
+    try {
+        await deleteJobsByIds(selectedIds);
+        // 如果需要，可以在这里重新 loadData() 确保同步
+    } catch (error) {
+        console.error("批量删除失败:", error);
+        alert("删除失败，数据将自动恢复");
+        setJobs(previousJobs);
+    }
+  };
+
   const toggleSelect = (id: string) => {
     setJobs(prev => prev.map(job => job.id === id ? { ...job, selected: !job.selected } : job));
   };
@@ -186,7 +246,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // [修改] 解析逻辑支持流式
   const handleParse = async () => {
     if (!user) { setIsLoginModalOpen(true); return; }
     if (!apiKey) { alert("请先配置 API Key"); return; }
@@ -194,33 +253,32 @@ const App: React.FC = () => {
 
     setIsInputModalOpen(false);
     setIsParsing(true);
-    setThinkingText(""); // 重置思考内容
+    setThinkingText(""); 
     
-    // 临时存储解析出的结果，用于最后统一保存到数据库
     const collectedResults: ParsingResult[] = [];
+    
+    // [修复] 计算临时序号基数 (解决序号显示 0 的问题)
+    // 假设 jobs 已经是按 seq_id 降序排列的
+    let tempSeqBase = jobs.length > 0 ? (jobs[0].seq_id || 0) : 0;
 
     try {
-      // 切换到待处理 Tab 以便看到流式上屏效果
       setActiveTab('pending');
 
       await parseRecruitmentTextStream(
           apiKey, 
           inputText, 
           userProfile,
-          // 回调 1: 更新思考框
           (text) => setThinkingText(text),
-          // 回调 2: 单条结果上屏 (流式)
           (obj) => {
-              collectedResults.push(obj); // 收集起来最后存库
+              collectedResults.push(obj);
               
-              // 构造一个临时的 JobApplication 对象用于 UI 展示
-              // 注意：此时没有数据库 ID，我们用随机 ID 暂代，
-              // 等最后存库刷新后会被真实 ID 替换，或者我们可以在这里不加 ID，只做展示？
-              // 更好的策略：前端显示“正在生成...”的占位，或者直接显示。
-              // 这里我们生成一个临时 ID，确保 key 不报错
+              // 递增临时序号
+              tempSeqBase += 1;
+
+              // 创建临时对象用于即时展示
               const tempJob: JobApplication = {
-                  id: `temp-${Date.now()}-${Math.random()}`,
-                  seq_id: 0, // 临时
+                  id: `temp-${Date.now()}-${Math.random()}`, // 临时 ID
+                  seq_id: tempSeqBase,
                   user_id: user.id,
                   company: obj.company,
                   department: obj.department,
@@ -242,16 +300,16 @@ const App: React.FC = () => {
                   filename: `${obj.email_subject}.pdf`
               };
 
-              // [核心] 流式更新 UI：将新解析出的 job 插入到列表最前面
+              // 将新解析的数据插入到最前面
               setJobs(prev => [tempJob, ...prev]);
           }
       );
       
-      // 解析完成后，统一保存到 Supabase 并刷新获取真实 ID
-      // 注意：为了防止 UI 闪烁（临时 ID 变真实 ID），我们静默刷新
+      // 解析完成后，统一保存并刷新
       if (collectedResults.length > 0) {
           await saveParsedJobs(collectedResults, source);
-          await loadData(); // 重新拉取，获取包含 seq_id 和 db id 的真实数据
+          // 静默刷新，获取真实的 DB ID 和 seq_id
+          await loadData(); 
       }
 
       setInputText(''); 
@@ -277,7 +335,7 @@ const App: React.FC = () => {
             if (processedCount === jobsToSend.length) {
                 setTimeout(() => setIsSending(false), 2000);
             }
-        }, index * 10000);
+        }, index * 10000); // 每 10 秒发送一封，避免触发限制
     });
   };
 
@@ -372,7 +430,10 @@ const App: React.FC = () => {
       );
   }, [jobs, searchTerm]);
 
-  const pendingJobs = filteredJobsBySearch.filter(j => j.status === 'pending');
+
+  const pendingJobs = filteredJobsBySearch.filter(j => 
+    j.status === 'pending' || j.status === 'sending' || j.status === 'error'
+);
   const sentJobs = filteredJobsBySearch.filter(j => j.status === 'sent' || j.status === 'interview'); 
   const filteredJobs = filteredJobsBySearch.filter(j => j.status === 'filtered');
 
@@ -446,7 +507,8 @@ const App: React.FC = () => {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-8 flex flex-col gap-6">
          {!user && !authLoading ? (
              <div className="flex flex-col items-center justify-center h-[60vh] bg-white rounded-xl shadow-sm border border-gray-200 mt-4 text-center p-8">
-                 {/* ... (Welcome Content) ... */}
+                 <h2 className="text-3xl font-bold text-gray-900 mb-4">智能求职，快人一步</h2>
+                 <p className="text-gray-500 mb-8 max-w-md">基于 Gemini AI 的海量招聘信息解析工具，自动提取关键信息，一键生成个性化求职邮件。</p>
                  <button onClick={() => setIsLoginModalOpen(true)} className="px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-lg hover:bg-indigo-700 transition-all hover:scale-105">立即登录 / 注册</button>
              </div>
          ) : (
@@ -467,7 +529,6 @@ const App: React.FC = () => {
                         disabled={isParsing}
                     />
                     
-                    {/* [修改] 按钮区域：解析时显示思考框，否则显示按钮 */}
                     {isParsing ? (
                         <AIThinkingBox text={thinkingText} />
                     ) : (
@@ -482,7 +543,6 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden min-h-[600px]">
-                    {/* ... (Tab Buttons & Search Bar - Same as before) ... */}
                     <div className="flex border-b border-gray-200 bg-gray-50">
                         <button onClick={() => setActiveTab('pending')} className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'pending' ? 'border-indigo-600 text-indigo-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>待投递 <span className="bg-indigo-100 text-indigo-700 py-0.5 px-2 rounded-full text-xs">{pendingJobs.length}</span></button>
                         <button onClick={() => setActiveTab('sent')} className={`px-6 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'sent' ? 'border-green-600 text-green-600 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>已投递/进面 <span className="bg-green-100 text-green-700 py-0.5 px-2 rounded-full text-xs">{sentJobs.length}</span></button>
@@ -530,7 +590,6 @@ const App: React.FC = () => {
                                 </tbody>
                             </table>
                         )}
-                        {/* ... (Other Tabs omitted for brevity, same as previous) ... */}
                         {activeTab === 'sent' && (
                             <table className="w-full text-left border-collapse bg-green-50/10">
                                 <thead>
@@ -568,6 +627,7 @@ const App: React.FC = () => {
                             <table className="w-full text-left border-collapse bg-red-50/10">
                                 <thead>
                                     <tr className="bg-red-50 border-b border-red-100 text-xs font-bold uppercase tracking-wider text-red-800">
+                                        <th className="p-4 w-10 text-center"><input type="checkbox" onChange={toggleSelectAll} checked={filteredJobs.length > 0 && filteredJobs.every(j => j.selected)} className="w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500"/></th>
                                         <th className="p-4 w-14 text-center">序号</th>
                                         <th className="p-4 min-w-[180px]">公司 / 岗位</th>
                                         <th className="p-4 w-32">来源</th>
@@ -578,6 +638,7 @@ const App: React.FC = () => {
                                 <tbody className="divide-y divide-red-100 text-sm">
                                     {filteredJobs.map(job => (
                                         <tr key={job.id} className="hover:bg-red-50/30">
+                                            <td className="p-4 text-center align-middle"><input type="checkbox" checked={job.selected || false} onChange={() => toggleSelect(job.id)} className="w-4 h-4 rounded border-red-300 text-red-600 focus:ring-red-500"/></td>
                                             <td className="p-4 font-mono text-gray-500 text-xs text-center align-middle">{job.seq_id}</td>
                                             <td className="p-4 align-middle"><div className="font-bold text-gray-800">{job.company}{checkIsDuplicate(job.email) && <DuplicateBadge />}</div><div className="text-gray-600 text-xs">{job.position}</div></td>
                                             <td className="p-4 align-middle"><span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-1 rounded-full border border-gray-200 whitespace-nowrap">{job.source || "未知"}</span></td>
@@ -588,7 +649,7 @@ const App: React.FC = () => {
                                             </td>
                                         </tr>
                                     ))}
-                                    {filteredJobs.length === 0 && <tr><td colSpan={5} className="p-12 text-center text-gray-400">{searchTerm ? '未找到匹配记录' : '没有被过滤的记录'}</td></tr>}
+                                    {filteredJobs.length === 0 && <tr><td colSpan={6} className="p-12 text-center text-gray-400">{searchTerm ? '未找到匹配记录' : '没有被过滤的记录'}</td></tr>}
                                 </tbody>
                             </table>
                         )}
@@ -597,8 +658,30 @@ const App: React.FC = () => {
                     {activeTab === 'pending' && (
                         <div className="p-5 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
                              <div className="text-sm text-gray-500">已选 {pendingJobs.filter(j => j.selected).length} 项</div>
-                             <button onClick={handleBatchSend} disabled={isSending || !pendingJobs.some(j => j.selected)} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all">
-                                {isSending ? `发送中... ${Math.round(sendProgress)}%` : '批量发送 (SMTP)'}
+                             <div className="flex gap-3">
+                                 <button 
+                                    onClick={handleBatchDelete}
+                                    disabled={!pendingJobs.some(j => j.selected)}
+                                    className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                 >
+                                    批量删除
+                                 </button>
+                                 <button onClick={handleBatchSend} disabled={isSending || !pendingJobs.some(j => j.selected)} className="bg-green-600 text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all">
+                                    {isSending ? `发送中... ${Math.round(sendProgress)}%` : '批量发送 (SMTP)'}
+                                 </button>
+                             </div>
+                        </div>
+                    )}
+                    
+                    {activeTab === 'filtered' && (
+                        <div className="p-5 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
+                             <div className="text-sm text-gray-500">已选 {filteredJobs.filter(j => j.selected).length} 项</div>
+                             <button 
+                                onClick={handleBatchDelete}
+                                disabled={!filteredJobs.some(j => j.selected)}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                             >
+                                清空选中的记录
                              </button>
                         </div>
                     )}
@@ -616,7 +699,7 @@ const App: React.FC = () => {
                         <button onClick={() => setIsInputModalOpen(false)} className="text-gray-400 hover:text-gray-700 text-2xl leading-none">&times;</button>
                     </div>
                     <div className="flex-1 p-0 relative">
-                        <textarea className="w-full h-full p-6 text-sm font-mono leading-relaxed resize-none focus:outline-none" placeholder="请粘贴大量招聘文本..." value={inputText} onChange={(e) => setInputText(e.target.value)} autoFocus />
+                        <textarea className="w-full h-full p-6 text-sm font-mono leading-relaxed resize-none focus:outline-none" placeholder="请粘贴大量招聘信息..." value={inputText} onChange={(e) => setInputText(e.target.value)} autoFocus />
                     </div>
                     <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-3">
                         <button onClick={() => setIsInputModalOpen(false)} className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-white">关闭</button>
