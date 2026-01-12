@@ -11,14 +11,13 @@ export const AVAILABLE_MODELS = [
 export const SOURCE_OPTIONS = ["免费表", "付费表", "公众号", "小红书"];
 
 const DEFAULT_MAIL_TEMPLATE = `
-<p>{{opening_line}}</p>
-<p>您好！</p>
+<p>{{opening_line}}，您好！</p>
 <p>我是邹宇涛，毕业于厦门大学管理科学系（电子商务专业），已拿到NUS 26fall 数据科学与机器学习硕士offer。{{job_source_line}}，我的背景与该岗位要求高度匹配，特此附上简历申请。</p>
-<p>我的优势包括：<br>1. <strong>顶尖咨询与头部券商行研经验</strong>：拥有在罗兰贝格 (Roland Berger)、华泰证券和一级市场买方的实习经历。具备<strong>扎实的Desk Research、战略推演及PPT制作能力</strong>，曾独立协助完成区域产业规划、企业ESG报告与券商对上市公司的首次分析报告等。<br>2. <strong>数据分析等硬技能</strong>：不同于传统商科生，我的本科专业偏新、偏硬核，因此我具备较强的数据分析能力。能<strong>熟练应用 SQL，掌握窗口函数、表连接、子查询等</strong>高频语句，修读Python课程，及熟练使用MS Office，具备将数据转化为业务Insights的实战经验。<br>3. <strong>随时到岗与全情投入</strong>：我目前已结束所有课程与校园事务，<strong>可立即入职并保证全职工作时长</strong>，接受高强度的工作节奏。<br>4. <strong>对AI有极强热情</strong>：经常使用AI，<strong>对AI大模型、AI应用有高于同龄人的了解</strong>，常用Gemini、AI Studio等。已经在AI帮助下针对自己的需求vibe coding完成三个项目。</p>
+<p>我的优势包括：<br>1. <strong>战略研究经验</strong>：拥有在罗兰贝格 、华泰证券和一级市场买方的实习经历。具备<strong>扎实的Desk Research、战略推演及PPT制作能力</strong>，曾独立协助完成区域产业规划、企业ESG报告与券商对上市公司的首次分析报告等。<br>2. <strong>数据分析等硬技能</strong>：不同于传统商科生，我的本科专业偏新、偏硬核，因此我具备较强的数据分析能力。能<strong>熟练应用 SQL，掌握窗口函数、表连接、子查询等</strong>高频语句，修读Python课程，及熟练使用MS Office，具备将数据转化为业务Insights的实战经验。<br>3. <strong>随时到岗与全情投入</strong>：我目前已结束所有课程与校园事务，<strong>可立即入职并保证全职工作时长</strong>，接受高强度的工作节奏。<br>4. <strong>对AI有极强热情</strong>：经常使用AI，<strong>对AI大模型、AI应用有高于同龄人的了解</strong>，常用Gemini、AI Studio等。已经在AI帮助下针对自己的需求vibe coding完成三个项目。</p>
 <p>{{praise_line}}，渴望在为您提供最尽力的支持的同时收获成长。</p>
 <p>感谢您拨冗阅读，期待有机会能参加面试。</p>
 <p>祝好！</p>
-<p>邹宇涛<br>电话：152-5984-9453（微信同号）</p>
+<p>邹宇涛</p>
 `;
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
