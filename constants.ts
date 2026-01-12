@@ -18,6 +18,7 @@ const DEFAULT_MAIL_TEMPLATE = `
 <p>感谢您拨冗阅读，期待有机会能参加面试。</p>
 <p>祝好！</p>
 <p>邹宇涛</p>
+<p>152-5984-9453</p>
 `;
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
@@ -117,7 +118,7 @@ export const generateSystemPrompt = (profile: UserProfile): string => `
          "${profile.name}-{学校}-${profile.availability}-${profile.frequency}-${profile.arrival}"
 
 5. **Email Body Snippets (片段)**:
-   - opening_line: "{Company}{Position}招聘负责人老师："
+   - opening_line: "{Company}{Position}招聘负责人老师"
    - **job_source_line**: "我了解到您发布的{Position}的招聘JD"
    - praise_line: "我对{Company}在{Department或Position}领域的深耕非常敬佩"
 

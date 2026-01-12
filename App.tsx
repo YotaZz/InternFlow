@@ -393,7 +393,7 @@ const App: React.FC = () => {
             if (processedCount === jobsToSend.length) {
                 setTimeout(() => setIsSending(false), 2000);
             }
-        }, index * 2000);
+        }, index * 10000);
     });
   };
 
