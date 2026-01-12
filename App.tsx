@@ -20,13 +20,15 @@ import {
     syncToInterviewManager, 
     updateJob, 
     deleteJobById,
-    deleteJobsByIds,
+    deleteJobsByIds, 
     reorderJobSequences 
 } from './services/jobService';
 
 // 类型与常量
 import { JobApplication, ParsingResult, UserProfile } from './types';
 import { DEFAULT_USER_PROFILE, SOURCE_OPTIONS } from './constants';
+
+// --- 将辅助组件提取到 App 外部 ---
 
 const MaximizeIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
@@ -69,14 +71,80 @@ const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
+// [Fix] 将 SourceSelector 移到 App 外部，防止重渲染导致输入中断
+interface SourceSelectorProps {
+    source: string;
+    setSource: (val: string) => void;
+    isCustomSource: boolean;
+    setIsCustomSource: (val: boolean) => void;
+    className?: string;
+}
+
+const SourceSelector: React.FC<SourceSelectorProps> = ({ 
+    source, 
+    setSource, 
+    isCustomSource, 
+    setIsCustomSource, 
+    className = "" 
+}) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // 切换到自定义模式时自动聚焦
+    useEffect(() => {
+        if (isCustomSource) {
+            setTimeout(() => inputRef.current?.focus(), 50);
+        }
+    }, [isCustomSource]);
+
+    return (
+        <div className={`flex items-center gap-2 ${className}`}>
+            <span className="text-xs font-bold text-gray-500 whitespace-nowrap">信息来源:</span>
+            {!isCustomSource ? (
+                <select 
+                    value={source} 
+                    onChange={(e) => {
+                        if (e.target.value === 'custom') {
+                            setIsCustomSource(true);
+                            setSource('');
+                        } else {
+                            setSource(e.target.value);
+                        }
+                    }}
+                    className="bg-gray-50 border border-gray-300 text-gray-800 text-xs rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5"
+                >
+                    {SOURCE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    <option value="custom">✏️ 手动输入...</option>
+                </select>
+            ) : (
+                <div className="flex items-center gap-1">
+                    <input 
+                        ref={inputRef}
+                        type="text" 
+                        value={source} 
+                        onChange={e => setSource(e.target.value)}
+                        placeholder="输入来源..."
+                        className="bg-white border border-gray-300 text-gray-800 text-xs rounded-lg p-1.5 w-32 focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button onClick={() => setIsCustomSource(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- App 组件主体 ---
+
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [apiKey, setApiKey] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
+  
+  // 状态：来源相关
   const [source, setSource] = useState<string>(SOURCE_OPTIONS[0]);
   const [isCustomSource, setIsCustomSource] = useState(false);
+
   const [isParsing, setIsParsing] = useState<boolean>(false);
   const [thinkingText, setThinkingText] = useState<string>('');
   const [jobs, setJobs] = useState<JobApplication[]>([]);
@@ -88,16 +156,6 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pending' | 'sent' | 'filtered'>('pending');
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
-
-  // [Fix] 自定义来源输入框的引用，用于手动聚焦
-  const customSourceInputRef = useRef<HTMLInputElement>(null);
-
-  // [Fix] 监听模式切换，手动聚焦一次，代替 autoFocus
-  useEffect(() => {
-    if (isCustomSource) {
-      setTimeout(() => customSourceInputRef.current?.focus(), 50);
-    }
-  }, [isCustomSource]);
 
   const duplicateStatus = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -327,7 +385,7 @@ const App: React.FC = () => {
             if (processedCount === jobsToSend.length) {
                 setTimeout(() => setIsSending(false), 2000);
             }
-        }, index * 10000);
+        }, index * 2000);
     });
   };
 
@@ -428,43 +486,6 @@ const App: React.FC = () => {
   const sentJobs = filteredJobsBySearch.filter(j => j.status === 'sent' || j.status === 'interview'); 
   const filteredJobs = filteredJobsBySearch.filter(j => j.status === 'filtered');
 
-  // [Fix] 修改后的 SourceSelector，使用 ref 和 useEffect 代替 autoFocus
-  const SourceSelector = ({ className = "" }) => (
-      <div className={`flex items-center gap-2 ${className}`}>
-          <span className="text-xs font-bold text-gray-500 whitespace-nowrap">信息来源:</span>
-          {!isCustomSource ? (
-              <select 
-                value={source} 
-                onChange={(e) => {
-                    if (e.target.value === 'custom') {
-                        setIsCustomSource(true);
-                        setSource('');
-                    } else {
-                        setSource(e.target.value);
-                    }
-                }}
-                className="bg-gray-50 border border-gray-300 text-gray-800 text-xs rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5"
-              >
-                  {SOURCE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                  <option value="custom">✏️ 手动输入...</option>
-              </select>
-          ) : (
-              <div className="flex items-center gap-1">
-                  <input 
-                    ref={customSourceInputRef} // 绑定引用
-                    type="text" 
-                    value={source} 
-                    onChange={e => setSource(e.target.value)}
-                    placeholder="输入来源..."
-                    // autoFocus  <-- [已移除] 避免重新渲染时的焦点抢占问题
-                    className="bg-white border border-gray-300 text-gray-800 text-xs rounded-lg p-1.5 w-32 focus:ring-2 focus:ring-indigo-500"
-                  />
-                  <button onClick={() => setIsCustomSource(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
-              </div>
-          )}
-      </div>
-  );
-
   return (
     <div className="min-h-screen flex flex-col font-sans text-slate-800 bg-gray-100">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
@@ -508,7 +529,13 @@ const App: React.FC = () => {
              <>
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 relative group">
                     <div className="flex justify-between items-center mb-2 px-1">
-                        <SourceSelector />
+                        {/* 使用提取后的 SourceSelector，传递 state */}
+                        <SourceSelector 
+                            source={source} 
+                            setSource={setSource}
+                            isCustomSource={isCustomSource}
+                            setIsCustomSource={setIsCustomSource}
+                        />
                         <button onClick={() => setIsInputModalOpen(true)} className="p-1.5 bg-gray-50 hover:bg-gray-100 text-gray-500 rounded-md text-xs flex items-center gap-1 transition-colors">
                             <MaximizeIcon /> 全屏编辑
                         </button>
@@ -583,6 +610,7 @@ const App: React.FC = () => {
                                 </tbody>
                             </table>
                         )}
+                        {/* ... (其他 Tab 的代码保持不变) ... */}
                         {activeTab === 'sent' && (
                             <table className="w-full text-left border-collapse bg-green-50/10">
                                 <thead>
