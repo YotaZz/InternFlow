@@ -16,22 +16,22 @@ import {
     fetchJobs, 
     saveParsedJobs, 
     updateJobStatus, 
-    updateJobsStatus, // [新增]
+    updateJobsStatus, 
     syncToInterviewManager, 
     updateJob, 
     deleteJobById,
     deleteJobsByIds,
-    reorderJobSequences // [新增]
+    reorderJobSequences 
 } from './services/jobService';
 
 // 类型与常量
 import { JobApplication, ParsingResult, UserProfile } from './types';
 import { DEFAULT_USER_PROFILE, SOURCE_OPTIONS } from './constants';
 
-// ... (MaximizeIcon, DuplicateBadge, AIThinkingBox 组件保持不变，省略以节省空间) ...
 const MaximizeIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
 );
+
 const DuplicateBadge = () => (
     <div className="group relative inline-flex items-center justify-center ml-2 cursor-help">
         <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-600 border border-orange-200">
@@ -43,6 +43,7 @@ const DuplicateBadge = () => (
         </div>
     </div>
 );
+
 const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -67,10 +68,8 @@ const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
         </div>
     );
 };
-// ...
 
 const App: React.FC = () => {
-  // ... (状态管理保持不变) ...
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
@@ -90,7 +89,16 @@ const App: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
 
-  // ... (duplicateStatus, checkIsDuplicate, useEffect, loadData, updateJobLocal, handleFullUpdateJob 保持不变) ...
+  // [Fix] 自定义来源输入框的引用，用于手动聚焦
+  const customSourceInputRef = useRef<HTMLInputElement>(null);
+
+  // [Fix] 监听模式切换，手动聚焦一次，代替 autoFocus
+  useEffect(() => {
+    if (isCustomSource) {
+      setTimeout(() => customSourceInputRef.current?.focus(), 50);
+    }
+  }, [isCustomSource]);
+
   const duplicateStatus = useMemo(() => {
     const counts: Record<string, number> = {};
     jobs.forEach(job => {
@@ -152,7 +160,6 @@ const App: React.FC = () => {
       }
   };
 
-  // [修改] 单条删除逻辑
   const deleteJob = async (id: string) => {
     const job = jobs.find(j => j.id === id);
     if (!job) return;
@@ -160,7 +167,6 @@ const App: React.FC = () => {
     const previousJobs = [...jobs];
     const wasPreviewing = previewJob?.id === id;
 
-    // 逻辑 A: 如果已经在“已过滤”列表，执行【物理删除】 + 【弹窗确认】
     if (job.status === 'filtered') {
         if (!confirm("确定要永久删除这条记录吗？此操作无法撤销。")) return;
 
@@ -169,9 +175,8 @@ const App: React.FC = () => {
 
         try {
             await deleteJobById(id);
-            // 物理删除后，进行序号重排
             await reorderJobSequences();
-            await loadData(); // 刷新以获取新序号
+            await loadData(); 
         } catch (error) {
             console.error("删除失败:", error);
             alert("删除失败，请检查网络。");
@@ -181,29 +186,23 @@ const App: React.FC = () => {
                  if (jobToRestore) setPreviewJob(jobToRestore);
             }
         }
-    } 
-    // 逻辑 B: 如果在“待投递”或“发送中”，执行【软删除】 + 【无弹窗】
-    else {
-        // 直接乐观更新状态
+    } else {
         updateJobLocal(id, { status: 'filtered' });
-        
         try {
              await updateJobStatus(id, 'filtered');
         } catch (error) {
             console.error("软删除失败:", error);
-            setJobs(previousJobs); // 回滚
+            setJobs(previousJobs); 
         }
     }
   };
 
-  // [修改] 批量删除逻辑
   const handleBatchDelete = async () => {
     const selectedJobs = filteredJobsBySearch.filter(j => j.status === activeTab && j.selected);
     const selectedIds = selectedJobs.map(j => j.id);
 
     if (selectedIds.length === 0) return;
 
-    // 无论何种模式，批量操作始终保留弹窗
     const isPhysicalDelete = activeTab === 'filtered';
     const msg = isPhysicalDelete 
         ? `⚠️ 确认彻底删除\n\n您选中了 ${selectedIds.length} 条记录，删除后无法恢复。\n确定要继续吗？`
@@ -213,7 +212,6 @@ const App: React.FC = () => {
 
     const previousJobs = [...jobs];
     
-    // 乐观更新：根据模式移除或更新状态
     if (isPhysicalDelete) {
         setJobs(prev => prev.filter(j => !selectedIds.includes(j.id)));
     } else {
@@ -222,16 +220,12 @@ const App: React.FC = () => {
 
     try {
         if (isPhysicalDelete) {
-            // 物理删除
             await deleteJobsByIds(selectedIds);
-            // 物理删除后，自动重排剩余数据的序号
             await reorderJobSequences();
         } else {
-            // 软删除
             await updateJobsStatus(selectedIds, 'filtered');
-            // 软删除不改变记录数量，无需重排序号（除非您希望软删除也导致剩余pending序号重排，但seq_id是全局的）
         }
-        await loadData(); // 刷新数据
+        await loadData(); 
     } catch (error) {
         console.error("批量操作失败:", error);
         alert("操作失败，数据将自动恢复");
@@ -254,7 +248,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // ... (handleParse, handleBatchSend, handleSendEmail, handleAddToInterview 保持不变) ...
   const handleParse = async () => {
     if (!user) { setIsLoginModalOpen(true); return; }
     if (!apiKey) { alert("请先配置 API Key"); return; }
@@ -266,7 +259,6 @@ const App: React.FC = () => {
     
     const collectedResults: ParsingResult[] = [];
     
-    // 临时序号基数 (注意：saveParsedJobs 会重置全表序号)
     let tempSeqBase = jobs.length > 0 ? (jobs[0].seq_id || 0) : 0;
 
     try {
@@ -308,7 +300,6 @@ const App: React.FC = () => {
       );
       
       if (collectedResults.length > 0) {
-          // 保存并自动重排序号
           await saveParsedJobs(collectedResults, source);
           await loadData(); 
       }
@@ -437,7 +428,7 @@ const App: React.FC = () => {
   const sentJobs = filteredJobsBySearch.filter(j => j.status === 'sent' || j.status === 'interview'); 
   const filteredJobs = filteredJobsBySearch.filter(j => j.status === 'filtered');
 
-  // ... (SourceSelector, return JSX 保持不变) ...
+  // [Fix] 修改后的 SourceSelector，使用 ref 和 useEffect 代替 autoFocus
   const SourceSelector = ({ className = "" }) => (
       <div className={`flex items-center gap-2 ${className}`}>
           <span className="text-xs font-bold text-gray-500 whitespace-nowrap">信息来源:</span>
@@ -460,11 +451,12 @@ const App: React.FC = () => {
           ) : (
               <div className="flex items-center gap-1">
                   <input 
+                    ref={customSourceInputRef} // 绑定引用
                     type="text" 
                     value={source} 
                     onChange={e => setSource(e.target.value)}
                     placeholder="输入来源..."
-                    autoFocus
+                    // autoFocus  <-- [已移除] 避免重新渲染时的焦点抢占问题
                     className="bg-white border border-gray-300 text-gray-800 text-xs rounded-lg p-1.5 w-32 focus:ring-2 focus:ring-indigo-500"
                   />
                   <button onClick={() => setIsCustomSource(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
@@ -692,7 +684,6 @@ const App: React.FC = () => {
       </main>
 
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
-      {/* ... (Modal部分保持不变) ... */}
       {isInputModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] shadow-2xl flex flex-col overflow-hidden">
