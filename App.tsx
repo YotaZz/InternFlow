@@ -16,21 +16,22 @@ import {
     fetchJobs, 
     saveParsedJobs, 
     updateJobStatus, 
+    updateJobsStatus, // [新增]
     syncToInterviewManager, 
     updateJob, 
     deleteJobById,
-    deleteJobsByIds // 确保在 jobService 中导出了此方法
+    deleteJobsByIds,
+    reorderJobSequences // [新增]
 } from './services/jobService';
 
 // 类型与常量
 import { JobApplication, ParsingResult, UserProfile } from './types';
 import { DEFAULT_USER_PROFILE, SOURCE_OPTIONS } from './constants';
 
+// ... (MaximizeIcon, DuplicateBadge, AIThinkingBox 组件保持不变，省略以节省空间) ...
 const MaximizeIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
 );
-
-// 重复标记组件
 const DuplicateBadge = () => (
     <div className="group relative inline-flex items-center justify-center ml-2 cursor-help">
         <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-600 border border-orange-200">
@@ -42,21 +43,15 @@ const DuplicateBadge = () => (
         </div>
     </div>
 );
-
-
-
 const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [text]);
-
     return (
         <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/30 overflow-hidden shadow-sm transition-all duration-300">
-            {/* 头部状态栏 */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-100/40 border-b border-indigo-200/30">
                 <div className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
@@ -66,73 +61,42 @@ const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
                     AI 正在思考...
                 </span>
             </div>
-            
-            {/* 内容区域：
-                1. 移除光标 span
-                2. 高度改为 min-h-[8rem] (约128px) 到 max-h-[20rem] (约320px) 的自适应范围 
-            */}
-            <div 
-                ref={scrollRef}
-                className="
-                    min-h-[8rem] max-h-[20rem]
-                    overflow-y-auto 
-                    p-3 
-                    font-mono text-[10px] leading-relaxed 
-                    text-slate-600 
-                    bg-white/40
-                    backdrop-blur-sm
-                    [&::-webkit-scrollbar]:w-1
-                    [&::-webkit-scrollbar-track]:bg-transparent
-                    [&::-webkit-scrollbar-thumb]:bg-indigo-200/50
-                    [&::-webkit-scrollbar-thumb]:rounded-full
-                    hover:[&::-webkit-scrollbar-thumb]:bg-indigo-300
-                "
-            >
-                <div className="whitespace-pre-wrap break-words">
-                   {text}
-                </div>
+            <div ref={scrollRef} className="min-h-[8rem] max-h-[20rem] overflow-y-auto p-3 font-mono text-[10px] leading-relaxed text-slate-600 bg-white/40 backdrop-blur-sm [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-indigo-200/50 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-indigo-300">
+                <div className="whitespace-pre-wrap break-words">{text}</div>
             </div>
         </div>
     );
 };
+// ...
 
 const App: React.FC = () => {
-  // --- 状态管理 ---
+  // ... (状态管理保持不变) ...
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-
   const [apiKey, setApiKey] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
-  
   const [source, setSource] = useState<string>(SOURCE_OPTIONS[0]);
   const [isCustomSource, setIsCustomSource] = useState(false);
-
   const [isParsing, setIsParsing] = useState<boolean>(false);
   const [thinkingText, setThinkingText] = useState<string>('');
-  
   const [jobs, setJobs] = useState<JobApplication[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  
   const [previewJob, setPreviewJob] = useState<JobApplication | null>(null);
-  
   const [userProfile, setUserProfile] = useState<UserProfile>(DEFAULT_USER_PROFILE);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isInputModalOpen, setIsInputModalOpen] = useState(false); 
-  
   const [activeTab, setActiveTab] = useState<'pending' | 'sent' | 'filtered'>('pending');
   const [isSending, setIsSending] = useState(false);
   const [sendProgress, setSendProgress] = useState(0);
 
-  // 计算重复邮箱映射表
+  // ... (duplicateStatus, checkIsDuplicate, useEffect, loadData, updateJobLocal, handleFullUpdateJob 保持不变) ...
   const duplicateStatus = useMemo(() => {
     const counts: Record<string, number> = {};
     jobs.forEach(job => {
         if (job.email) {
             const emails = job.email.split(/[,，]/).map(e => e.trim());
-            emails.forEach(e => {
-                if (e) counts[e] = (counts[e] || 0) + 1;
-            });
+            emails.forEach(e => { if (e) counts[e] = (counts[e] || 0) + 1; });
         }
     });
     return counts;
@@ -188,48 +152,89 @@ const App: React.FC = () => {
       }
   };
 
+  // [修改] 单条删除逻辑
   const deleteJob = async (id: string) => {
-    if (!confirm("确定要删除这条记录吗？此操作无法撤销。")) return;
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+
     const previousJobs = [...jobs];
     const wasPreviewing = previewJob?.id === id;
-    setJobs(prev => prev.filter(job => job.id !== id));
-    if (wasPreviewing) setPreviewJob(null);
-    try {
-      await deleteJobById(id);
-    } catch (error) {
-      console.error("删除失败:", error);
-      alert("删除失败，请检查网络，数据将自动恢复。");
-      setJobs(previousJobs);
-      if (wasPreviewing) {
-         const jobToRestore = previousJobs.find(j => j.id === id);
-         if (jobToRestore) setPreviewJob(jobToRestore);
-      }
+
+    // 逻辑 A: 如果已经在“已过滤”列表，执行【物理删除】 + 【弹窗确认】
+    if (job.status === 'filtered') {
+        if (!confirm("确定要永久删除这条记录吗？此操作无法撤销。")) return;
+
+        setJobs(prev => prev.filter(job => job.id !== id));
+        if (wasPreviewing) setPreviewJob(null);
+
+        try {
+            await deleteJobById(id);
+            // 物理删除后，进行序号重排
+            await reorderJobSequences();
+            await loadData(); // 刷新以获取新序号
+        } catch (error) {
+            console.error("删除失败:", error);
+            alert("删除失败，请检查网络。");
+            setJobs(previousJobs);
+            if (wasPreviewing) {
+                 const jobToRestore = previousJobs.find(j => j.id === id);
+                 if (jobToRestore) setPreviewJob(jobToRestore);
+            }
+        }
+    } 
+    // 逻辑 B: 如果在“待投递”或“发送中”，执行【软删除】 + 【无弹窗】
+    else {
+        // 直接乐观更新状态
+        updateJobLocal(id, { status: 'filtered' });
+        
+        try {
+             await updateJobStatus(id, 'filtered');
+        } catch (error) {
+            console.error("软删除失败:", error);
+            setJobs(previousJobs); // 回滚
+        }
     }
   };
 
-  // [新增] 批量删除功能
+  // [修改] 批量删除逻辑
   const handleBatchDelete = async () => {
-    const selectedIds = filteredJobsBySearch
-        .filter(j => j.status === activeTab && j.selected)
-        .map(j => j.id);
+    const selectedJobs = filteredJobsBySearch.filter(j => j.status === activeTab && j.selected);
+    const selectedIds = selectedJobs.map(j => j.id);
 
     if (selectedIds.length === 0) return;
 
-    if (!confirm(`⚠️ 确认删除\n\n您选中了 ${selectedIds.length} 条记录，删除后无法恢复。\n确定要继续吗？`)) {
-        return;
-    }
+    // 无论何种模式，批量操作始终保留弹窗
+    const isPhysicalDelete = activeTab === 'filtered';
+    const msg = isPhysicalDelete 
+        ? `⚠️ 确认彻底删除\n\n您选中了 ${selectedIds.length} 条记录，删除后无法恢复。\n确定要继续吗？`
+        : `⚠️ 确认移除\n\n您选中了 ${selectedIds.length} 条记录，它们将被移入“已过滤”列表。\n确定要继续吗？`;
+
+    if (!confirm(msg)) return;
 
     const previousJobs = [...jobs];
     
-    // 乐观更新
-    setJobs(prev => prev.filter(j => !selectedIds.includes(j.id)));
+    // 乐观更新：根据模式移除或更新状态
+    if (isPhysicalDelete) {
+        setJobs(prev => prev.filter(j => !selectedIds.includes(j.id)));
+    } else {
+        setJobs(prev => prev.map(j => selectedIds.includes(j.id) ? { ...j, status: 'filtered', selected: false } : j));
+    }
 
     try {
-        await deleteJobsByIds(selectedIds);
-        // 如果需要，可以在这里重新 loadData() 确保同步
+        if (isPhysicalDelete) {
+            // 物理删除
+            await deleteJobsByIds(selectedIds);
+            // 物理删除后，自动重排剩余数据的序号
+            await reorderJobSequences();
+        } else {
+            // 软删除
+            await updateJobsStatus(selectedIds, 'filtered');
+            // 软删除不改变记录数量，无需重排序号（除非您希望软删除也导致剩余pending序号重排，但seq_id是全局的）
+        }
+        await loadData(); // 刷新数据
     } catch (error) {
-        console.error("批量删除失败:", error);
-        alert("删除失败，数据将自动恢复");
+        console.error("批量操作失败:", error);
+        alert("操作失败，数据将自动恢复");
         setJobs(previousJobs);
     }
   };
@@ -249,6 +254,7 @@ const App: React.FC = () => {
     }));
   };
 
+  // ... (handleParse, handleBatchSend, handleSendEmail, handleAddToInterview 保持不变) ...
   const handleParse = async () => {
     if (!user) { setIsLoginModalOpen(true); return; }
     if (!apiKey) { alert("请先配置 API Key"); return; }
@@ -260,8 +266,7 @@ const App: React.FC = () => {
     
     const collectedResults: ParsingResult[] = [];
     
-    // [修复] 计算临时序号基数 (解决序号显示 0 的问题)
-    // 假设 jobs 已经是按 seq_id 降序排列的
+    // 临时序号基数 (注意：saveParsedJobs 会重置全表序号)
     let tempSeqBase = jobs.length > 0 ? (jobs[0].seq_id || 0) : 0;
 
     try {
@@ -274,13 +279,9 @@ const App: React.FC = () => {
           (text) => setThinkingText(text),
           (obj) => {
               collectedResults.push(obj);
-              
-              // 递增临时序号
               tempSeqBase += 1;
-
-              // 创建临时对象用于即时展示
               const tempJob: JobApplication = {
-                  id: `temp-${Date.now()}-${Math.random()}`, // 临时 ID
+                  id: `temp-${Date.now()}-${Math.random()}`,
                   seq_id: tempSeqBase,
                   user_id: user.id,
                   company: obj.company,
@@ -302,28 +303,25 @@ const App: React.FC = () => {
                   logs: [],
                   filename: `${obj.email_subject}.pdf`
               };
-
-              // 将新解析的数据插入到最前面
               setJobs(prev => [tempJob, ...prev]);
           }
       );
       
-      // 解析完成后，统一保存并刷新
       if (collectedResults.length > 0) {
+          // 保存并自动重排序号
           await saveParsedJobs(collectedResults, source);
-          // 静默刷新，获取真实的 DB ID 和 seq_id
           await loadData(); 
       }
-
       setInputText(''); 
     } catch (error) {
       console.error(error);
       alert("解析失败，请检查 API Key 或网络连接。");
+      loadData();
     } finally {
       setIsParsing(false);
     }
   };
-  
+
   const handleBatchSend = () => {
     const jobsToSend = jobs.filter(j => j.status === 'pending' && j.selected);
     if (jobsToSend.length === 0) return;
@@ -338,7 +336,7 @@ const App: React.FC = () => {
             if (processedCount === jobsToSend.length) {
                 setTimeout(() => setIsSending(false), 2000);
             }
-        }, index * 10000); // 每 10 秒发送一封，避免触发限制
+        }, index * 10000);
     });
   };
 
@@ -433,13 +431,13 @@ const App: React.FC = () => {
       );
   }, [jobs, searchTerm]);
 
-
   const pendingJobs = filteredJobsBySearch.filter(j => 
     j.status === 'pending' || j.status === 'sending' || j.status === 'error'
-);
+  );
   const sentJobs = filteredJobsBySearch.filter(j => j.status === 'sent' || j.status === 'interview'); 
   const filteredJobs = filteredJobsBySearch.filter(j => j.status === 'filtered');
 
+  // ... (SourceSelector, return JSX 保持不变) ...
   const SourceSelector = ({ className = "" }) => (
       <div className={`flex items-center gap-2 ${className}`}>
           <span className="text-xs font-bold text-gray-500 whitespace-nowrap">信息来源:</span>
@@ -694,6 +692,7 @@ const App: React.FC = () => {
       </main>
 
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      {/* ... (Modal部分保持不变) ... */}
       {isInputModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
                 <div className="bg-white rounded-xl w-full max-w-5xl h-[85vh] shadow-2xl flex flex-col overflow-hidden">

@@ -11,7 +11,36 @@ const getCurrentUser = async () => {
   return session.user;
 };
 
-// 2. 读取列表 (只读取当前用户的数据)
+// [新增] 重新排列所有序号的函数 (核心逻辑)
+export const reorderJobSequences = async () => {
+  const user = await getCurrentUser();
+
+  // 1. 获取该用户所有记录，按创建时间正序排列 (越早创建的序号越小，保证原有顺序)
+  const { data: allJobs, error: fetchError } = await supabase
+    .from('internflow_entries')
+    .select('id, created_at') // 只需要 id 和 created_at
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true });
+
+  if (fetchError) throw fetchError;
+  if (!allJobs || allJobs.length === 0) return;
+
+  // 2. 构建更新数组，重新分配连续的 seq_id
+  const updates = allJobs.map((job, index) => ({
+    id: job.id,
+    seq_id: index + 1, // 从 1 开始连续编号
+    updated_at: new Date().toISOString() //以此触发更新
+  }));
+
+  // 3. 批量更新 (Upsert)
+  const { error: upsertError } = await supabase
+    .from('internflow_entries')
+    .upsert(updates, { onConflict: 'id' }); // 指定 id 为冲突键，仅更新 seq_id
+
+  if (upsertError) throw upsertError;
+};
+
+// 2. 读取列表
 export const fetchJobs = async (): Promise<JobApplication[]> => {
   const user = await getCurrentUser();
   
@@ -19,8 +48,7 @@ export const fetchJobs = async (): Promise<JobApplication[]> => {
     .from('internflow_entries')
     .select('*')
     .eq('user_id', user.id)
-    // [修改] 改为按 seq_id 降序排序
-    .order('seq_id', { ascending: false });
+    .order('seq_id', { ascending: false }); // 列表展示时倒序，新数据(大序号)在前
 
   if (error) {
       console.error("Error fetching jobs:", error);
@@ -35,33 +63,15 @@ export const fetchJobs = async (): Promise<JobApplication[]> => {
   }));
 };
 
-
 // 3. 解析后保存
 export const saveParsedJobs = async (results: ParsingResult[], source: string) => {
   const user = await getCurrentUser();
   
-  // [新增] 步骤 A: 获取当前用户最大的 seq_id
-  const { data: maxData, error: maxError } = await supabase
-    .from('internflow_entries')
-    .select('seq_id')
-    .eq('user_id', user.id)
-    .order('seq_id', { ascending: false })
-    .limit(1);
-
-  if (maxError) {
-      console.error("Error fetching max seq_id:", maxError);
-      throw maxError;
-  }
-
-  // 如果没有数据，从 0 开始；否则取最大值
-  let currentSeqBase = (maxData && maxData.length > 0) ? (maxData[0].seq_id || 0) : 0;
-
-  // [修改] 步骤 B: 手动分配连续的 seq_id
+  // [修改] 插入时不计算复杂序号，直接插入，随后统一重排
   const rows = results.map(res => {
-    currentSeqBase += 1; // 递增序号
     return {
         user_id: user.id,
-        seq_id: currentSeqBase, // 显式写入序号
+        seq_id: 0, // 占位符
         company: res.company,
         department: res.department,
         position: res.position,
@@ -80,16 +90,19 @@ export const saveParsedJobs = async (results: ParsingResult[], source: string) =
     };
   });
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('internflow_entries')
-    .insert(rows)
-    .select();
+    .insert(rows);
 
   if (error) throw error;
-  return data;
+
+  // [关键] 插入完成后，执行全表序号重排，确保连续
+  await reorderJobSequences();
+
+  return true;
 };
 
-// 4. 更新状态 (仅更新 status)
+// 4. 更新单条状态
 export const updateJobStatus = async (id: string, status: string) => {
   const { error } = await supabase
     .from('internflow_entries')
@@ -98,51 +111,49 @@ export const updateJobStatus = async (id: string, status: string) => {
   if (error) throw error;
 };
 
-// 5. 通用更新 (用于编辑详情，同步到数据库)
+// [新增] 批量更新状态 (用于批量软删除)
+export const updateJobsStatus = async (ids: string[], status: string) => {
+  const { error } = await supabase
+    .from('internflow_entries')
+    .update({ status })
+    .in('id', ids);
+  if (error) throw error;
+};
+
+// 5. 通用更新
 export const updateJob = async (id: string, updates: Partial<JobApplication>) => {
-  // 剔除 UI 专用字段，防止写入数据库报错
-  // seq_id 是生成的，通常也不应该被更新，这里一并剔除比较安全，虽然传了也不一定会错
   const { selected, logs, filename, seq_id, created_at, ...dbUpdates } = updates as any;
-  
   const { error } = await supabase
     .from('internflow_entries')
     .update(dbUpdates)
     .eq('id', id);
-    
   if (error) throw error;
 };
 
-// 6. 删除记录
+// 6. 删除单条记录 (物理删除)
 export const deleteJobById = async (id: string) => {
   const { error } = await supabase
     .from('internflow_entries')
     .delete()
     .eq('id', id);
-    
   if (error) throw error;
 };
 
-// [新增] 7. 批量删除记录
+// 7. 批量删除记录 (物理删除)
 export const deleteJobsByIds = async (ids: string[]) => {
   const { error } = await supabase
     .from('internflow_entries')
     .delete()
     .in('id', ids);
-    
   if (error) throw error;
 };
 
-// 8. 同步到 JobFlow 的 jobs 表
+// 8. 同步到面试表
 export const syncToInterviewManager = async (job: JobApplication) => {
   const user = await getCurrentUser();
-  
-  const finalPosition = job.department 
-    ? `${job.department}-${job.position}` 
-    : job.position;
-
+  const finalPosition = job.department ? `${job.department}-${job.position}` : job.position;
   const defaultSteps = ["已投递", "初筛", "笔试", "一面", "二面", "HR面", "OC"];
-  const now = Date.now();
-  const initialStepDates = { "0": now };
+  const initialStepDates = { "0": Date.now() };
 
   const { error: insertError } = await supabase
     .from('jobs')
