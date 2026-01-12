@@ -28,6 +28,7 @@ export const reorderJobSequences = async () => {
   // 2. 构建更新数组，重新分配连续的 seq_id
   const updates = allJobs.map((job, index) => ({
     id: job.id,
+    user_id: user.id,
     seq_id: index + 1, // 从 1 开始连续编号
     updated_at: new Date().toISOString() //以此触发更新
   }));
