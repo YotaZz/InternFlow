@@ -11,35 +11,43 @@ const getCurrentUser = async () => {
   return session.user;
 };
 
-// [新增] 重新排列所有序号的函数 (核心逻辑)
+// services/jobService.ts
+
+// [修改] 重新排列所有序号的函数 (核心逻辑)
+// 改用标准 update 避免 upsert 的 400 校验问题
 export const reorderJobSequences = async () => {
   const user = await getCurrentUser();
 
-  // 1. 获取该用户所有记录，按创建时间正序排列 (越早创建的序号越小，保证原有顺序)
+  // 1. 获取该用户所有记录，按创建时间正序排列
   const { data: allJobs, error: fetchError } = await supabase
     .from('internflow_entries')
-    .select('id, created_at') // 只需要 id 和 created_at
+    .select('id, created_at') 
     .eq('user_id', user.id)
     .order('created_at', { ascending: true });
 
   if (fetchError) throw fetchError;
   if (!allJobs || allJobs.length === 0) return;
 
-  // 2. 构建更新数组，重新分配连续的 seq_id
-  const updates = allJobs.map((job, index) => ({
-    id: job.id,
-    user_id: user.id,
-    seq_id: index + 1, // 从 1 开始连续编号
-    updated_at: new Date().toISOString() //以此触发更新
-  }));
+  // 2. 使用 Promise.all 并发执行 update
+  // 相比 upsert，直接 update 不会校验缺失字段，也不会被误判为 insert，非常稳定
+  const updatePromises = allJobs.map((job, index) => {
+    return supabase
+      .from('internflow_entries')
+      .update({ 
+        seq_id: index + 1, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('id', job.id); // 精确指定更新哪一行
+  });
 
-  // 3. 批量更新 (Upsert)
-  const { error: upsertError } = await supabase
-    .from('internflow_entries')
-    .upsert(updates, { onConflict: 'id' }); // 指定 id 为冲突键，仅更新 seq_id
+  // 等待所有更新完成
+  const results = await Promise.all(updatePromises);
 
-  if (upsertError) throw upsertError;
+  // 3. 检查是否有任何一个请求失败
+  const firstError = results.find(r => r.error)?.error;
+  if (firstError) throw firstError;
 };
+
 
 // 2. 读取列表
 export const fetchJobs = async (): Promise<JobApplication[]> => {

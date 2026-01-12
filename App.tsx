@@ -71,7 +71,7 @@ const AIThinkingBox: React.FC<{ text: string }> = ({ text }) => {
     );
 };
 
-// [Fix] 将 SourceSelector 移到 App 外部，防止重渲染导致输入中断
+// [修复] 将 SourceSelector 移到 App 外部，防止重渲染导致输入中断
 interface SourceSelectorProps {
     source: string;
     setSource: (val: string) => void;
@@ -109,7 +109,7 @@ const SourceSelector: React.FC<SourceSelectorProps> = ({
                         } else {
                             setSource(e.target.value);
                         }
-                    }}
+                    }} 
                     className="bg-gray-50 border border-gray-300 text-gray-800 text-xs rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-1.5"
                 >
                     {SOURCE_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -125,13 +125,21 @@ const SourceSelector: React.FC<SourceSelectorProps> = ({
                         placeholder="输入来源..."
                         className="bg-white border border-gray-300 text-gray-800 text-xs rounded-lg p-1.5 w-32 focus:ring-2 focus:ring-indigo-500"
                     />
-                    <button onClick={() => setIsCustomSource(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+                    {/* [修复核心] 点击关闭时，强制重置 source 为列表第一个选项 */}
+                    <button 
+                        onClick={() => { 
+                            setIsCustomSource(false); 
+                            setSource(SOURCE_OPTIONS[0]); 
+                        }} 
+                        className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+                    >
+                        &times;
+                    </button>
                 </div>
             )}
         </div>
     );
 };
-
 // --- App 组件主体 ---
 
 const App: React.FC = () => {
