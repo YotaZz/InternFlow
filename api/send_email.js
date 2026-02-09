@@ -57,6 +57,7 @@ export default async function handler(req, res) {
     });
 
     const resumePath = path.resolve(process.cwd(), 'resume.pdf');
+    const reportPath = path.resolve(process.cwd(), '大金工业：十年财务与并购路径_yutao.pdf');
 
     const info = await transporter.sendMail({
       from: `"${fromName || 'InternFlow AI'}" <${user}>`, 
@@ -66,8 +67,14 @@ export default async function handler(req, res) {
       replyTo: replyTo || user,
       attachments: [
         {
+            // 原有的简历，使用邮件标题命名
             filename: `${subject}.pdf`, 
             path: resumePath
+        },
+        {
+            // [修改 2] 新增报告附件，使用原有命名
+            filename: '大金工业：十年财务与并购路径_yutao.pdf',
+            path: reportPath
         }
       ]
     });

@@ -7,7 +7,7 @@
   ],
   "functions": {
     "api/send_email.js": {
-      "includeFiles": "resume.pdf"
+      "includeFiles": "resume.pdf, 大金工业：十年财务与并购路径_yutao.pdf"
     }
   }
 }
