@@ -245,8 +245,8 @@ const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({ job, onClose, onS
                  </button>
              </div>
         </div>
-      </div> {/* End of bg-white card */}
-    </div> {/* End of fixed overlay (你之前少了这一行) */}
+      </div>
+    </div>
   );
 };
 
