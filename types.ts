@@ -76,4 +76,5 @@ export interface JobApplication {
   logs?: string[];
   filename?: string;
   created_at?: string;
+  attach_report?: boolean;
 }

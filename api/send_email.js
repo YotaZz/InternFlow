@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { to, subject, html, replyTo, fromName, smtpUser, smtpPass } = req.body;
+  const { to, subject, html, replyTo, fromName, smtpUser, smtpPass, attachReport } = req.body;
 
   const user = smtpUser || process.env.QQ_EMAIL;
   const pass = smtpPass || process.env.QQ_PASSWORD;
@@ -58,6 +58,21 @@ export default async function handler(req, res) {
 
     const resumePath = path.resolve(process.cwd(), 'resume.pdf');
     const reportPath = path.resolve(process.cwd(), '大金工业：十年财务与并购路径_yutao.pdf');
+
+    const attachments = [
+        {
+            filename: `${subject}.pdf`, 
+            path: resumePath
+        }
+    ];
+
+    // 只有当 attachReport 为 true 时才添加报告
+    if (attachReport) {
+        attachments.push({
+            filename: '大金工业：十年财务与并购路径_yutao.pdf',
+            path: reportPath
+        });
+    }
 
     const info = await transporter.sendMail({
       from: `"${fromName || 'InternFlow AI'}" <${user}>`, 

@@ -13,6 +13,16 @@ interface JobEntryRowProps {
   isDuplicate?: boolean;
 }
 
+// [新增] 报告图标组件
+const ReportIcon = ({ active }: { active: boolean }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={active ? "text-indigo-600" : "text-gray-300"}>
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+    <polyline points="14 2 14 8 20 8"/>
+    {active && <path d="M12 18v-6" stroke="currentColor" strokeWidth="2"/>}
+    {active && <path d="M9 15l3 3 3-3" stroke="currentColor" strokeWidth="2"/>}
+  </svg>
+);
+
 const JobEntryRow: React.FC<JobEntryRowProps> = ({ 
   job, 
   userProfile, 
@@ -282,9 +292,29 @@ const JobEntryRow: React.FC<JobEntryRowProps> = ({
          )}
       </td>
 
-      {/* 8. 操作 */}
+      {/* 8. 操作 (修改此列) */}
       <td className="p-4 align-middle text-right" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-end gap-2">
+            {/* [新增] 报告切换按钮 */}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    if (!isSending) onUpdate(job.id, { attach_report: !job.attach_report });
+                }}
+                disabled={isSending}
+                className={`p-1.5 rounded-md border transition-all flex items-center gap-1 ${
+                    job.attach_report 
+                    ? 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100' 
+                    : 'bg-transparent border-transparent hover:bg-gray-100'
+                }`}
+                title={job.attach_report ? "将会发送大金报告 (点击取消)" : "不发送报告 (点击附带)"}
+            >
+                <ReportIcon active={!!job.attach_report} />
+                {job.attach_report && <span className="text-[10px] font-bold text-indigo-600">附报告</span>}
+            </button>
+
+            <div className="w-px h-3 bg-gray-200 mx-1"></div>
+
             <button 
                 onClick={() => onPreview(job)}
                 disabled={isSending}

@@ -68,7 +68,8 @@ export const fetchJobs = async (): Promise<JobApplication[]> => {
       ...item,
       selected: false,
       logs: [],
-      filename: `${item.email_subject}.pdf`
+      filename: `${item.email_subject}.pdf`,
+      attach_report: false
   }));
 };
 
@@ -131,7 +132,7 @@ export const updateJobsStatus = async (ids: string[], status: string) => {
 
 // 5. 通用更新
 export const updateJob = async (id: string, updates: Partial<JobApplication>) => {
-  const { selected, logs, filename, seq_id, created_at, ...dbUpdates } = updates as any;
+  const { selected, logs, filename, seq_id, created_at, attach_report, ...dbUpdates } = updates as any;
   const { error } = await supabase
     .from('internflow_entries')
     .update(dbUpdates)

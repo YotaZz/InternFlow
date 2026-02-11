@@ -20,8 +20,8 @@ const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({ job, onClose, onS
   const [localOpening, setLocalOpening] = useState('');
   const [localSource, setLocalSource] = useState('');
   const [localPraise, setLocalPraise] = useState('');
-  
   const [isSaving, setIsSaving] = useState(false);
+  const [localAttachReport, setLocalAttachReport] = useState(false);
 
   useEffect(() => {
     if (job) {
@@ -33,6 +33,7 @@ const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({ job, onClose, onS
       setLocalOpening(job.opening_line);
       setLocalSource(job.job_source_line);
       setLocalPraise(job.praise_line);
+      setLocalAttachReport(job.attach_report || false);
     }
   }, [job]);
 
@@ -75,7 +76,8 @@ const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({ job, onClose, onS
     job_source_line: localSource,
     praise_line: localPraise,
     needs_review: false,
-    review_reason: undefined
+    review_reason: undefined,
+    attach_report: localAttachReport
   });
 
   // 仅保存
@@ -202,27 +204,47 @@ const EmailPreviewModal: React.FC<EmailPreviewModalProps> = ({ job, onClose, onS
             </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-6 border-t bg-white flex justify-end gap-3 shrink-0">
-             <button onClick={onClose} className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors">取消</button>
-             
-             <button 
-                onClick={handleSave} 
-                disabled={isSaving}
-                className="px-6 py-3 border border-indigo-600 text-indigo-600 rounded-lg font-bold hover:bg-indigo-50 transition-colors flex items-center gap-2"
-             >
-                {isSaving ? '保存中...' : '仅保存'}
-             </button>
-             
-             <button 
-                onClick={handleSend} 
-                disabled={job.status === 'sending' || isSaving} 
-                className="px-8 py-3 rounded-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg transition-colors flex items-center gap-2 disabled:bg-gray-400"
-             >
-                {(job.status === 'sending' || isSaving) ? '处理中...' : '保存并发送 🚀'}
-             </button>
+	{/* Footer */}
+        <div className="p-6 border-t bg-white flex justify-between items-center shrink-0">
+             {/* [新增] 左侧开关：控制是否发送研报 */}
+             <label className="flex items-center gap-2 cursor-pointer select-none group">
+                <input 
+                    type="checkbox" 
+                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300 cursor-pointer"
+                    checked={localAttachReport}
+                    onChange={(e) => setLocalAttachReport(e.target.checked)}
+                />
+                <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-600 transition-colors">
+                    同时发送大金研报附件
+                </span>
+             </label>
+
+             {/* 右侧按钮组 */}
+             <div className="flex gap-3">
+                 <button 
+                    onClick={onClose} 
+                    className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                 >
+                    取消
+                 </button>
+                 
+                 <button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    className="px-6 py-3 border border-indigo-600 text-indigo-600 rounded-lg font-bold hover:bg-indigo-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                 >
+                    {isSaving ? '保存中...' : '仅保存'}
+                 </button>
+                 
+                 <button 
+                    onClick={handleSend} 
+                    disabled={job.status === 'sending' || isSaving} 
+                    className="px-8 py-3 rounded-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg transition-colors flex items-center gap-2 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                 >
+                    {(job.status === 'sending' || isSaving) ? '处理中...' : '保存并发送 🚀'}
+                 </button>
+             </div>
         </div>
-      </div>
     </div>
   );
 };

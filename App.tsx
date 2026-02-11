@@ -397,66 +397,78 @@ const App: React.FC = () => {
     });
   };
 
-  const handleSendEmail = async (jobId: string, overrideJob?: JobApplication) => {
-    const job = overrideJob || jobs.find(j => j.id === jobId);
-    if (!job) return;
-    const addLog = (msg: string) => {
-        const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-        const logLine = `[${time}] ${msg}`;
-        setJobs(prev => prev.map(j => {
-            if (j.id === jobId) return { ...j, logs: [...(j.logs || []), logLine] };
-            return j;
-        }));
-    };
-    updateJobLocal(jobId, { status: 'sending' as any });
-    addLog(`正在发送给 ${job.email}...`);
-    try {
-        let mailBody = userProfile.bodyTemplate || "";
-        mailBody = mailBody.replace(/{{opening_line}}/g, job.opening_line || '')
-                           .replace(/{{job_source_line}}/g, job.job_source_line || '')
-                           .replace(/{{praise_line}}/g, job.praise_line || '')
-                           .replace(/{{company}}/g, job.company)
-                           .replace(/{{position}}/g, job.position)
-                           .replace(/{{name}}/g, userProfile.name)
-                           .replace(/{{undergrad}}/g, userProfile.undergrad)
-                           .replace(/{{undergradMajor}}/g, userProfile.undergradMajor)
-                           .replace(/{{availability}}/g, userProfile.availability)
-                           .replace(/{{frequency}}/g, userProfile.frequency)
-                           .replace(/{{arrival}}/g, userProfile.arrival)
-                           .replace(/{{currentGrade}}/g, userProfile.currentGrade || '');
-        const masterInfo = userProfile.master 
-            ? `硕士就读于${userProfile.master}${userProfile.masterMajor ? `(${userProfile.masterMajor})` : ''}，` 
-            : "";
-        mailBody = mailBody.replace(/{{master_info}}/g, masterInfo);
-        const fromName = userProfile.senderName || userProfile.name;
-        const response = await fetch('/api/send_email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                to: job.email,
-                subject: job.email_subject,
-                html: mailBody,
-                replyTo: userProfile.senderEmail || user?.email,
-                fromName: fromName, 
-                smtpUser: userProfile.smtpUser,
-                smtpPass: userProfile.smtpPass
-            })
-        });
-        const data = await response.json();
-        if (response.ok) {
-            addLog(`发送成功! ID: ${data.messageId}`);
-            await updateJobStatus(jobId, 'sent');
-            updateJobLocal(jobId, { status: 'sent' });
-        } else {
-            addLog(`发送失败: ${data.error}`);
-            updateJobLocal(jobId, { status: 'error' as any });
-        }
-    } catch (error: any) {
-        console.error("API Error:", error);
-        addLog(`Error: ${error.message || 'Network error'}`);
-        updateJobLocal(jobId, { status: 'error' as any });
-    }
+
+const handleSendEmail = async (jobId: string, overrideJob?: JobApplication) => {
+  const job = overrideJob || jobs.find(j => j.id === jobId);
+  if (!job) return;
+
+  const addLog = (msg: string) => {
+      const time = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      const logLine = `[${time}] ${msg}`;
+      setJobs(prev => prev.map(j => {
+          if (j.id === jobId) return { ...j, logs: [...(j.logs || []), logLine] };
+          return j;
+      }));
   };
+
+  updateJobLocal(jobId, { status: 'sending' as any });
+
+  // [修改点 1] 日志增加附件提示
+  const reportMsg = job.attach_report ? " (+报告)" : "";
+  addLog(`正在发送给 ${job.email}...${reportMsg}`);
+
+  try {
+      let mailBody = userProfile.bodyTemplate || "";
+      mailBody = mailBody.replace(/{{opening_line}}/g, job.opening_line || '')
+                          .replace(/{{job_source_line}}/g, job.job_source_line || '')
+                          .replace(/{{praise_line}}/g, job.praise_line || '')
+                          .replace(/{{company}}/g, job.company)
+                          .replace(/{{position}}/g, job.position)
+                          .replace(/{{name}}/g, userProfile.name)
+                          .replace(/{{undergrad}}/g, userProfile.undergrad)
+                          .replace(/{{undergradMajor}}/g, userProfile.undergradMajor)
+                          .replace(/{{availability}}/g, userProfile.availability)
+                          .replace(/{{frequency}}/g, userProfile.frequency)
+                          .replace(/{{arrival}}/g, userProfile.arrival)
+                          .replace(/{{currentGrade}}/g, userProfile.currentGrade || '');
+      const masterInfo = userProfile.master 
+          ? `硕士就读于${userProfile.master}${userProfile.masterMajor ? `(${userProfile.masterMajor})` : ''}，` 
+          : "";
+      mailBody = mailBody.replace(/{{master_info}}/g, masterInfo);
+      
+      const fromName = userProfile.senderName || userProfile.name;
+      
+      const response = await fetch('/api/send_email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+              to: job.email,
+              subject: job.email_subject,
+              html: mailBody,
+              replyTo: userProfile.senderEmail || user?.email,
+              fromName: fromName, 
+              smtpUser: userProfile.smtpUser,
+              smtpPass: userProfile.smtpPass,
+              // [修改点 2] 传递附件开关状态给后端
+              attachReport: job.attach_report 
+          })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+          addLog(`发送成功! ID: ${data.messageId}`);
+          await updateJobStatus(jobId, 'sent');
+          updateJobLocal(jobId, { status: 'sent' });
+      } else {
+          addLog(`发送失败: ${data.error}`);
+          updateJobLocal(jobId, { status: 'error' as any });
+      }
+  } catch (error: any) {
+      console.error("API Error:", error);
+      addLog(`Error: ${error.message || 'Network error'}`);
+      updateJobLocal(jobId, { status: 'error' as any });
+  }
+};
 
   const handleAddToInterview = async (job: JobApplication) => {
     if (!user) { setIsLoginModalOpen(true); return; }
