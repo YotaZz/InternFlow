@@ -80,18 +80,7 @@ export default async function handler(req, res) {
       subject: subject,
       html: html,
       replyTo: replyTo || user,
-      attachments: [
-        {
-            // 原有的简历，使用邮件标题命名
-            filename: `${subject}.pdf`, 
-            path: resumePath
-        },
-        {
-            // [修改 2] 新增报告附件，使用原有命名
-            filename: '大金工业：十年财务与并购路径_yutao.pdf',
-            path: reportPath
-        }
-      ]
+      attachments: attachments
     });
 
     console.log('Message sent: %s to %s', info.messageId, safeTo);
